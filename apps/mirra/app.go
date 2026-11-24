@@ -270,6 +270,7 @@ func newStudio(cx *core.Scope, a App) *studio {
 		keys, keysErr := readKeys(secrets, migrated, legacyAccount)
 		list, listErr := listWorks(st, worksDir)
 		uploads, uploadsErr := listUploads(st, uploadsDir)
+		clearResults(st, s.dir(resultsFolderName))
 		cx.Post(func() {
 			// A browser has no secure store: the key then lasts as long as the page.
 			s.keyKept.Set(!errors.Is(keysErr, core.ErrSecretsUnavailable))

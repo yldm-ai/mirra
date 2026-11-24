@@ -79,6 +79,17 @@ func deleteWork(st pictures, w work) error {
 	return nil
 }
 
+// clearResults removes what a previous launch generated but never saved: only the shot on show can reach a picture in results/, and a new launch opens without one, so whatever is left there can never be reached again.
+func clearResults(st pictures, dir string) {
+	names, err := st.List(dir)
+	if err != nil {
+		return
+	}
+	for _, name := range names {
+		_ = st.Remove(filepath.Join(dir, name))
+	}
+}
+
 // listWorks returns the works in dir, newest first.
 func listWorks(st pictures, dir string) ([]work, error) {
 	names, err := st.List(dir)

@@ -51,6 +51,16 @@ func works(t *testing.T, dir string) []work {
 	return ws
 }
 
+// results counts the pictures generated but not saved to Works.
+func results(t *testing.T, dir string) []string {
+	t.Helper()
+	names, err := filePictures{}.List(filepath.Join(dir, "results"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return names
+}
+
 // choose presses a gallery cell until it reports itself chosen. On the macOS target a press while a pushed page is still moving in is lost, and neither Settle nor the view tree says when the move ends, so there the press first waits out the transition: https://github.com/nsgo-dev/nsgo/issues/854
 func choose(t *testing.T, app *nsgotest.App, selector string) {
 	t.Helper()
@@ -112,6 +122,23 @@ func TestPhoneLookIsKeptOnlyWhenSaved(t *testing.T) {
 	ws := works(t, dir)
 	if len(ws) != 1 || ws[0].No != 1 || ws[0].Costume == nil || ws[0].Costume.ID != "WIN-0001" || ws[0].Pose == nil || ws[0].Face == nil {
 		t.Fatalf("works = %+v", ws)
+	}
+}
+
+// TestLaunchClearsUnsavedPictures frees what a previous launch generated but never saved: only the shot on show could reach a picture in results/, and a new launch opens without one, so what one left could never be reached again.
+func TestLaunchClearsUnsavedPictures(t *testing.T) {
+	srv, sites := newServer(t, &fakeAPI{})
+	dir := t.TempDir()
+	if err := (filePictures{}).Write(filepath.Join(dir, "results", "999.png"), []byte("stale")); err != nil {
+		t.Fatal(err)
+	}
+	app := nsgotest.Start(t, App{Client: srv.Client(), Sites: sites, DataDir: dir}.Root,
+		nsgotest.Environment(core.Environment{Locale: "en"}),
+		nsgotest.Storage(testStorage(srv.URL)),
+		nsgotest.Secrets(map[string]string{}))
+	app.WaitUntil(wait, func() bool { return len(results(t, dir)) == 0 })
+	if n := len(results(t, dir)); n != 0 {
+		t.Errorf("results = %d, want the previous launch's unsaved pictures gone", n)
 	}
 }
 

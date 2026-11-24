@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A picture a previous launch generated but never saved is removed when the app starts again, since nothing could reach it; it used to stay on the device forever.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.
