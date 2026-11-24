@@ -1967,6 +1967,7 @@ const (
 	textStatusUnconfigured
 	textPrivacyCloud
 	textPrivacyLocal
+	textPrivacyGateway
 	textPrivacyWeb
 	textPageOnly
 	textKeyUnavailable
@@ -2165,6 +2166,7 @@ var keyOfText = [numTexts]string{
 	"statusUnconfigured",
 	"privacyCloud",
 	"privacyLocal",
+	"privacyGateway",
 	"privacyWeb",
 	"pageOnly",
 	"keyUnavailable",
@@ -2361,6 +2363,7 @@ var textsEn = i18n.NewTexts(""+
 	"No AI service"+
 	"The key stays in this device's keychain. Requests go straight from your device to the service you set up, through no other server."+
 	"Requests go straight from your device to your own server, through no other server, at no cost."+
+	"Requests go from your device to the gateway on your own machine, which sends them on to the service behind it; that service's plan pays for them."+
 	"This web version keeps no key once the page closes; enter it again after a reload. Requests go straight from your browser to the service you set up."+
 	"In the web version, pictures and clothes last as long as this page. Export the ones you want to keep."+
 	"This device has no secure store for the key."+
@@ -2554,6 +2557,7 @@ var textsEn = i18n.NewTexts(""+
 		13,
 		130,
 		94,
+		145,
 		148,
 		101,
 		44,
@@ -2750,6 +2754,7 @@ var textsDe = i18n.NewTexts(""+
 	"Kein KI-Dienst"+
 	"Der Schlüssel bleibt im Schlüsselbund dieses Geräts. Anfragen gehen direkt von deinem Gerät an den eingerichteten Dienst, über keinen anderen Server."+
 	"Anfragen gehen direkt von deinem Gerät an deinen eigenen Server, über keinen anderen Server und kostenlos."+
+	"Anfragen gehen von deinem Gerät an das Gateway auf deinem Rechner, das sie an den Dienst dahinter weiterleitet; sie zählen auf dessen Tarif."+
 	"Diese Webversion behält keinen Schlüssel, sobald die Seite geschlossen wird; gib ihn nach dem Neuladen erneut ein. Anfragen gehen direkt von deinem Browser an den eingerichteten Dienst."+
 	"In der Webversion bleiben Bilder und Kleidung nur erhalten, solange diese Seite offen ist. Exportiere, was du behalten möchtest."+
 	"Dieses Gerät hat keinen sicheren Speicher für den Schlüssel."+
@@ -2943,6 +2948,7 @@ var textsDe = i18n.NewTexts(""+
 		14,
 		154,
 		108,
+		142,
 		187,
 		129,
 		63,
@@ -3139,6 +3145,7 @@ var textsEs = i18n.NewTexts(""+
 	"Sin servicio de IA"+
 	"La clave se queda en el llavero de este dispositivo. Las solicitudes van directamente de tu dispositivo al servicio que configuraste, sin pasar por ningún otro servidor."+
 	"Las solicitudes van directamente de tu dispositivo a tu propio servidor, sin pasar por ningún otro servidor y sin coste."+
+	"Las solicitudes van de tu dispositivo a la puerta de enlace de tu propia máquina, que las reenvía al servicio que hay detrás; se contabilizan en su plan."+
 	"Esta versión web no guarda la clave al cerrar la página; vuelve a introducirla tras recargar. Las solicitudes van directamente de tu navegador al servicio que configuraste."+
 	"En la versión web, las imágenes y la ropa duran lo que dure esta página. Exporta las que quieras conservar."+
 	"Este dispositivo no tiene un almacén seguro para la clave."+
@@ -3332,6 +3339,7 @@ var textsEs = i18n.NewTexts(""+
 		18,
 		170,
 		121,
+		156,
 		174,
 		110,
 		59,
@@ -3528,6 +3536,7 @@ var textsFr = i18n.NewTexts(""+
 	"Aucun service d’IA"+
 	"La clé reste dans le trousseau de cet appareil. Les requêtes vont directement de votre appareil au service configuré, sans passer par un autre serveur."+
 	"Les requêtes vont directement de votre appareil à votre propre serveur, sans passer par un autre serveur et sans frais."+
+	"Les requêtes vont de votre appareil vers la passerelle sur votre machine, qui les transmet au service derrière elle ; elles comptent dans son forfait."+
 	"La version web ne conserve pas la clé après la fermeture de la page\u00a0; saisissez-la à nouveau après un rechargement. Les requêtes vont directement de votre navigateur au service configuré."+
 	"Dans la version web, les images et les vêtements ne sont conservés que tant que cette page reste ouverte. Exportez ceux que vous voulez garder."+
 	"Cet appareil n’a pas de stockage sécurisé pour la clé."+
@@ -3721,6 +3730,7 @@ var textsFr = i18n.NewTexts(""+
 		20,
 		154,
 		121,
+		152,
 		194,
 		145,
 		59,
@@ -3917,6 +3927,7 @@ var textsIt = i18n.NewTexts(""+
 	"Nessun servizio IA"+
 	"La chiave resta nel portachiavi di questo dispositivo. Le richieste vanno direttamente dal tuo dispositivo al servizio che hai configurato, senza passare da altri server."+
 	"Le richieste vanno direttamente dal tuo dispositivo al tuo server, senza passare da altri server e senza costi."+
+	"Le richieste vanno dal tuo dispositivo al gateway sulla tua macchina, che le inoltra al servizio dietro di esso; contano nel suo piano."+
 	"La versione web non conserva la chiave dopo la chiusura della pagina; inseriscila di nuovo dopo un ricaricamento. Le richieste vanno direttamente dal tuo browser al servizio che hai configurato."+
 	"Nella versione web, immagini e vestiti durano quanto questa pagina. Esporta quelli che vuoi tenere."+
 	"Questo dispositivo non ha un archivio sicuro per la chiave."+
@@ -4110,6 +4121,7 @@ var textsIt = i18n.NewTexts(""+
 		18,
 		170,
 		111,
+		135,
 		194,
 		99,
 		59,
@@ -4306,6 +4318,7 @@ var textsJa = i18n.NewTexts(""+
 	"AI サービス未設定"+
 	"キーはこのデバイスのキーチェーンにのみ保存されます。リクエストは他のサーバーを経由せず、デバイスから設定したサービスへ直接送信されます。"+
 	"リクエストは他のサーバーを経由せず、デバイスからご自身のサーバーへ直接送信されます。費用はかかりません。"+
+	"リクエストはデバイスからご自身のローカルゲートウェイへ送信され、そこから背後のサービスへ転送されます。費用は背後のサービスのプランでまかなわれます。"+
 	"Web 版はページを閉じるとキーを保持しません。再読み込み後はもう一度入力してください。リクエストはブラウザから設定したサービスへ直接送信されます。"+
 	"Web 版では、作品や服の写真はこのページを開いている間だけ保持されます。残したいものは書き出してください。"+
 	"このデバイスにはキーを保存できる安全な保管場所がありません。"+
@@ -4499,6 +4512,7 @@ var textsJa = i18n.NewTexts(""+
 		24,
 		204,
 		156,
+		222,
 		214,
 		154,
 		90,
@@ -4695,6 +4709,7 @@ var textsKo = i18n.NewTexts(""+
 	"AI 서비스 없음"+
 	"Key는 이 기기의 키체인에만 저장돼요. 요청은 다른 서버를 거치지 않고 기기에서 설정한 서비스로 바로 전송돼요."+
 	"요청은 다른 서버를 거치지 않고 기기에서 내가 운영하는 서버로 바로 전송되며, 비용이 들지 않아요."+
+	"요청은 기기에서 내가 운영하는 컴퓨터의 게이트웨이로 전송되고, 거기서 그 뒤의 서비스로 전달돼요. 비용은 그 서비스의 요금제에 계산돼요."+
 	"웹 버전은 페이지를 닫으면 Key를 보관하지 않아요. 새로고침한 뒤에는 다시 입력하세요. 요청은 브라우저에서 설정한 서비스로 바로 전송돼요."+
 	"웹 버전에서는 이미지와 옷 사진이 이 페이지에만 남아요. 보관하고 싶은 것은 내보내세요."+
 	"이 기기에는 Key를 저장할 보안 저장소가 없어요."+
@@ -4888,6 +4903,7 @@ var textsKo = i18n.NewTexts(""+
 		19,
 		151,
 		135,
+		190,
 		190,
 		121,
 		64,
@@ -5084,6 +5100,7 @@ var textsPtBR = i18n.NewTexts(""+
 	"Nenhum serviço de IA"+
 	"A chave fica nas chaves seguras deste dispositivo. As solicitações vão direto do seu dispositivo para o serviço que você configurou, sem passar por nenhum outro servidor."+
 	"As solicitações vão direto do seu dispositivo para o seu próprio servidor, sem passar por nenhum outro servidor e sem custo."+
+	"As solicitações vão do seu dispositivo para o gateway da sua própria máquina, que as encaminha ao serviço por trás dele; elas contam no plano desse serviço."+
 	"Esta versão web não guarda a chave depois que a página é fechada; digite-a de novo após recarregar. As solicitações vão direto do seu navegador para o serviço que você configurou."+
 	"Na versão web, as imagens e roupas duram enquanto esta página estiver aberta. Exporte as que quiser guardar."+
 	"Este dispositivo não tem um armazenamento seguro para a chave."+
@@ -5277,6 +5294,7 @@ var textsPtBR = i18n.NewTexts(""+
 		21,
 		175,
 		128,
+		164,
 		189,
 		110,
 		63,
@@ -5473,6 +5491,7 @@ var textsRu = i18n.NewTexts(""+
 	"ИИ-сервис не настроен"+
 	"Ключ хранится в связке ключей этого устройства. Запросы идут напрямую с вашего устройства в настроенный сервис, без других серверов."+
 	"Запросы идут напрямую с вашего устройства на ваш собственный сервер, без других серверов и бесплатно."+
+	"Запросы идут с вашего устройства на шлюз на вашей машине, который пересылает их сервису за ним; они учитываются в тарифе этого сервиса."+
 	"Веб-версия не хранит ключ после закрытия страницы; после перезагрузки введите его снова. Запросы идут напрямую из вашего браузера в настроенный сервис."+
 	"В веб-версии изображения и одежда хранятся, пока открыта эта страница. Экспортируйте то, что хотите сохранить."+
 	"На этом устройстве нет защищённого хранилища для ключа."+
@@ -5666,6 +5685,7 @@ var textsRu = i18n.NewTexts(""+
 		39,
 		243,
 		186,
+		246,
 		278,
 		201,
 		102,
@@ -5862,6 +5882,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"未配置 AI 服务"+
 	"Key 只保存在本机系统钥匙串，不经过任何第三方服务器；请求从你的设备直接发往你配置的服务。"+
 	"请求从你的设备直接发往你自己部署的服务，不经过任何第三方服务器，也不产生费用。"+
+	"请求从你的设备发往你自己运行的网关，再由网关转发给背后的服务；费用计入该服务的套餐。"+
 	"网页版不会保存 Key，刷新页面后需要重新填写；请求从你的浏览器直接发往你配置的服务。"+
 	"网页版的作品和衣服照片只保存在当前页面，关闭前请导出想保留的。"+
 	"这台设备没有可以保存 Key 的安全存储。"+
@@ -6055,6 +6076,7 @@ var textsZhHans = i18n.NewTexts(""+
 		19,
 		130,
 		117,
+		126,
 		121,
 		93,
 		53,
@@ -6251,6 +6273,7 @@ var textsZhHant = i18n.NewTexts(""+
 	"未設定 AI 服務"+
 	"Key 只儲存在本機的系統鑰匙圈，不經過任何第三方伺服器；請求從你的裝置直接傳送到你設定的服務。"+
 	"請求從你的裝置直接傳送到你自己架設的伺服器，不經過任何第三方伺服器，也不產生費用。"+
+	"請求從你的裝置傳送到你自己執行的閘道，再由閘道轉發給背後的服務；費用計入該服務的方案。"+
 	"網頁版不會保存 Key，重新整理頁面後需要重新輸入；請求從你的瀏覽器直接傳送到你設定的服務。"+
 	"網頁版的作品和衣服照片只保存在目前的頁面，關閉前請匯出想保留的。"+
 	"這台裝置沒有可以保存 Key 的安全儲存空間。"+
@@ -6444,6 +6467,7 @@ var textsZhHant = i18n.NewTexts(""+
 		19,
 		136,
 		123,
+		129,
 		130,
 		96,
 		59,
@@ -8790,6 +8814,13 @@ func PrivacyLocal(cx *core.Scope) string { return For(cx).PrivacyLocal() }
 
 // PrivacyLocal is the package's PrivacyLocal in the language of msgs.
 func (msgs Messages) PrivacyLocal() string { return msgs.text(textPrivacyLocal) }
+
+// PrivacyGateway says "Requests go from your device to the gateway on your own machine, which sends them on to the service behind it; that service's plan pays for them."
+// in the language the app shows under cx.
+func PrivacyGateway(cx *core.Scope) string { return For(cx).PrivacyGateway() }
+
+// PrivacyGateway is the package's PrivacyGateway in the language of msgs.
+func (msgs Messages) PrivacyGateway() string { return msgs.text(textPrivacyGateway) }
 
 // PrivacyWeb says "This web version keeps no key once the page closes; enter it again after a reload. Requests go straight from your browser to the service you set up."
 // in the language the app shows under cx.

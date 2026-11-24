@@ -169,6 +169,7 @@ statusTesting: "{service} · wird getestet …"
 statusFailed: "{service} · keine Verbindung"
 privacyCloud: Der Schlüssel bleibt im Schlüsselbund dieses Geräts. Anfragen gehen direkt von deinem Gerät an den eingerichteten Dienst, über keinen anderen Server.
 privacyLocal: Anfragen gehen direkt von deinem Gerät an deinen eigenen Server, über keinen anderen Server und kostenlos.
+privacyGateway: Anfragen gehen von deinem Gerät an das Gateway auf deinem Rechner, das sie an den Dienst dahinter weiterleitet; sie zählen auf dessen Tarif.
 privacyWeb: Diese Webversion behält keinen Schlüssel, sobald die Seite geschlossen wird; gib ihn nach dem Neuladen erneut ein. Anfragen gehen direkt von deinem Browser an den eingerichteten Dienst.
 pageOnly: In der Webversion bleiben Bilder und Kleidung nur erhalten, solange diese Seite offen ist. Exportiere, was du behalten möchtest.
 keyUnavailable: Dieses Gerät hat keinen sicheren Speicher für den Schlüssel.

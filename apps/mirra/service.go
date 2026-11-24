@@ -81,7 +81,7 @@ func looksLikeImageModel(id string) bool {
 	return slices.ContainsFunc(imageModelNames, func(w string) bool { return strings.Contains(id, w) })
 }
 
-// ListModels returns the IDs of the image models cfg's key can use, sorted: xAI's image generation models, OpenRouter's models with image output, Ark's image generation domain, and the models of Gemini and of OpenAI and compatible servers whose names are an image model's, every model when none is.
+// ListModels returns the IDs of the image models cfg's key can use, sorted: xAI's image generation models, OpenRouter's models with image output, Ark's image generation domain, and the models of Gemini and of OpenAI and compatible servers whose names are an image model's, every model when none is. A server the user runs, a local model server or a gateway, lists what it serves, whose names need not be an image model's, so every one of them is offered.
 func ListModels(ctx context.Context, client *http.Client, cfg Config) ([]string, error) {
 	var ids []string
 	switch cfg.Protocol {
@@ -158,7 +158,8 @@ func ListModels(ctx context.Context, client *http.Client, cfg Config) ([]string,
 		var all []string
 		for _, m := range out.Data {
 			all = append(all, m.ID)
-			if looksLikeImageModel(m.ID) {
+			// A server the user runs serves what it lists, a local model or a gateway's route, whose name need not be an image model's; a cloud service's catalog mixes its models, so only the images' names are.
+			if cfg.Local || looksLikeImageModel(m.ID) {
 				ids = append(ids, m.ID)
 			}
 		}

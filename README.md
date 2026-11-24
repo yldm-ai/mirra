@@ -108,6 +108,7 @@ Open **Me** on a phone, or the settings button at the top right on the desktop, 
 | Alibaba Cloud Model Studio | Qwen image editing's multimodal generation; up to 3 images | `qwen-image-2.0-pro` |
 | Azure OpenAI | OpenAI's edit on your resource's `/openai/v1`, `api-key` header | your deployment's name |
 | stable-diffusion.cpp | its server's OpenAI-compatible `/images/edits` | `sd-cpp-local` |
+| Magpie | the local gateway's OpenAI-compatible `/images/edits`, which serves the image models of the accounts you are signed into | `gpt-image-2` |
 | Custom | any OpenAI-compatible `/images/edits` | `gpt-image-2` |
 
 Keys are stored in the macOS / iOS keychain, Android Keystore or Windows Credential Manager. The size is portrait (`1024x1536`), square (`1024x1024`) or landscape (`1536x1024`); providers that take an aspect ratio get the matching one, such as `2:3`.
@@ -128,6 +129,7 @@ The connection test asks the provider for its models; Volcengine Ark and Model S
 ## Privacy
 
 - The app sends the service you set up only the images you chose (gallery images, or a photo of your clothes) and the prompt, and only when you press Generate or Test connection.
+- A gateway you run, such as Magpie, passes the request on to the service behind it, whose plan pays for it.
 - Photos of your clothes stay in the app's data directory.
 - The galleries see the requests for the thumbnails and images you open, as a browser visit would.
 - A new picture is kept aside until you save it; saved ones stay in the app's data directory until you delete them.

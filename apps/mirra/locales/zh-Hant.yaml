@@ -169,6 +169,7 @@ statusTesting: "{service} · 測試中…"
 statusFailed: "{service} · 連線失敗"
 privacyCloud: Key 只儲存在本機的系統鑰匙圈，不經過任何第三方伺服器；請求從你的裝置直接傳送到你設定的服務。
 privacyLocal: 請求從你的裝置直接傳送到你自己架設的伺服器，不經過任何第三方伺服器，也不產生費用。
+privacyGateway: 請求從你的裝置傳送到你自己執行的閘道，再由閘道轉發給背後的服務；費用計入該服務的方案。
 privacyWeb: 網頁版不會保存 Key，重新整理頁面後需要重新輸入；請求從你的瀏覽器直接傳送到你設定的服務。
 pageOnly: 網頁版的作品和衣服照片只保存在目前的頁面，關閉前請匯出想保留的。
 keyUnavailable: 這台裝置沒有可以保存 Key 的安全儲存空間。

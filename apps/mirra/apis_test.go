@@ -403,17 +403,19 @@ func TestListModels(t *testing.T) {
 	for _, c := range []struct {
 		name, answer, path string
 		protocol           protocol
+		local              bool
 		want               []string
 	}{
-		{"OpenAI", `{"data":[{"id":"gpt-5"},{"id":"gpt-image-2"},{"id":"dall-e-3"},{"id":"gpt-image-2"}]}`, "/models", protoOpenAI, []string{"dall-e-3", "gpt-image-2"}},
-		{"a server of no image names", `{"data":[{"id":"my-model"},{"id":"another"}]}`, "/models", protoOpenAI, []string{"another", "my-model"}},
-		{"Gemini", `{"models":[{"name":"models/gemini-3-pro"},{"name":"models/gemini-3-pro-image"},{"name":"models/gemini-nano-banana-2.1"}]}`, "/models?pageSize=1000", protoGemini, []string{"gemini-3-pro-image", "gemini-nano-banana-2.1"}},
-		{"xAI", `{"models":[{"id":"grok-imagine-image-2.0"}]}`, "/image-generation-models", protoXAI, []string{"grok-imagine-image-2.0"}},
-		{"OpenRouter", `{"data":[{"id":"a/img","architecture":{"output_modalities":["image","text"]}},{"id":"a/txt","architecture":{"output_modalities":["text"]}}]}`, "/models?output_modalities=image", protoOpenRouter, []string{"a/img"}},
-		{"Ark", `{"data":[{"id":"doubao-seed-2","domain":"LLM"},{"id":"doubao-seedream-5-5","domain":"ImageGeneration"},{"id":"x","domain":"VLM","modalities":{"output_modalities":["image"]}}]}`, "/models", protoSeedream, []string{"doubao-seedream-5-5", "x"}},
+		{"OpenAI", `{"data":[{"id":"gpt-5"},{"id":"gpt-image-2"},{"id":"dall-e-3"},{"id":"gpt-image-2"}]}`, "/models", protoOpenAI, false, []string{"dall-e-3", "gpt-image-2"}},
+		{"a server of no image names", `{"data":[{"id":"my-model"},{"id":"another"}]}`, "/models", protoOpenAI, false, []string{"another", "my-model"}},
+		{"a server the user runs", `{"data":[{"id":"gpt-5"},{"id":"juggernautXL_v9"},{"id":"gpt-image-2"}]}`, "/models", protoOpenAI, true, []string{"gpt-5", "gpt-image-2", "juggernautXL_v9"}},
+		{"Gemini", `{"models":[{"name":"models/gemini-3-pro"},{"name":"models/gemini-3-pro-image"},{"name":"models/gemini-nano-banana-2.1"}]}`, "/models?pageSize=1000", protoGemini, false, []string{"gemini-3-pro-image", "gemini-nano-banana-2.1"}},
+		{"xAI", `{"models":[{"id":"grok-imagine-image-2.0"}]}`, "/image-generation-models", protoXAI, false, []string{"grok-imagine-image-2.0"}},
+		{"OpenRouter", `{"data":[{"id":"a/img","architecture":{"output_modalities":["image","text"]}},{"id":"a/txt","architecture":{"output_modalities":["text"]}}]}`, "/models?output_modalities=image", protoOpenRouter, false, []string{"a/img"}},
+		{"Ark", `{"data":[{"id":"doubao-seed-2","domain":"LLM"},{"id":"doubao-seedream-5-5","domain":"ImageGeneration"},{"id":"x","domain":"VLM","modalities":{"output_modalities":["image"]}}]}`, "/models", protoSeedream, false, []string{"doubao-seedream-5-5", "x"}},
 	} {
 		answer = c.answer
-		got, err := ListModels(context.Background(), srv.Client(), Config{Protocol: c.protocol, BaseURL: srv.URL + "/", APIKey: "k"})
+		got, err := ListModels(context.Background(), srv.Client(), Config{Protocol: c.protocol, BaseURL: srv.URL + "/", APIKey: "k", Local: c.local})
 		if err != nil || !slices.Equal(got, c.want) {
 			t.Errorf("%s: %v, %v; want %v", c.name, got, err, c.want)
 		}

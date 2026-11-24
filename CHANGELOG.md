@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The model picker of a server you run yourself, such as stable-diffusion.cpp or an OpenAI-compatible gateway, offers every model the server lists, where it offered only those whose names said they made images; a local model's name often says nothing of the kind.
+- Magpie, the gateway that serves the image models of the accounts you are signed into from one address on your own machine, is preset beside stable-diffusion.cpp, with the key optional.
+- The privacy note under the key says where the requests really go: a gateway passes them on to the service behind it, whose plan pays for them, where it said a server of your own answers them for free.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.

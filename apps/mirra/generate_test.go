@@ -3,11 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"image/png"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -119,6 +123,91 @@ func TestGenerateLocalWithoutKey(t *testing.T) {
 	}
 	if got := api.last().Auth; got != "" {
 		t.Errorf("a keyless local request sent Authorization %q", got)
+	}
+}
+
+// seenEdit is an edit request as a server the user runs received it.
+type seenEdit struct {
+	Auth, Model, Prompt, Size, N string
+	Images                       []string
+}
+
+// TestGenerateAgainstALocalServer pins the contract of a server the user runs, as stable-diffusion.cpp's and a gateway's answer it: OpenAI's multipart edit with every reference an image[] part, a model field the server is free to ignore, and the pictures as base64 alone.
+func TestGenerateAgainstALocalServer(t *testing.T) {
+	var mu sync.Mutex
+	var seen []seenEdit
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/models":
+			io.WriteString(w, `{"data":[{"id":"juggernautXL_v9"},{"id":"sd-cpp-local"}]}`)
+		case "/v1/images/edits":
+			if err := r.ParseMultipartForm(32 << 20); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			e := seenEdit{Auth: r.Header.Get("Authorization"), Model: r.FormValue("model"), Prompt: r.FormValue("prompt"), Size: r.FormValue("size"), N: r.FormValue("n")}
+			for _, fh := range r.MultipartForm.File["image[]"] {
+				e.Images = append(e.Images, fh.Filename)
+			}
+			mu.Lock()
+			seen = append(seen, e)
+			mu.Unlock()
+			// The server routes by the model it loaded or its settings', not the request's, and answers with base64 alone.
+			io.WriteString(w, `{"data":[{"b64_json":"`+base64.StdEncoding.EncodeToString(tinyPNG(t))+`"}]}`)
+		default:
+			w.Write(tinyPNG(t))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	item := func(name string) *Item { return &Item{Full: srv.URL + "/" + name} }
+	r := Request{Pose: item("pose.png"), Costume: item("outfit.png"), Face: item("face.png")}
+
+	got, err := Generate(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", Local: true}, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || !bytes.Equal(got[0], tinyPNG(t)) {
+		t.Errorf("Generate returned %d pictures, want the server's one decoded", len(got))
+	}
+	mu.Lock()
+	first := seen[0]
+	mu.Unlock()
+	if first.Auth != "" {
+		t.Errorf("a keyless local request sent Authorization %q", first.Auth)
+	}
+	if first.Model != defaultModel {
+		t.Errorf("model = %q, want the app's, which such a server is free to ignore", first.Model)
+	}
+	if want := []string{"pose.png", "outfit.png", "face.png"}; !slices.Equal(first.Images, want) {
+		t.Errorf("images = %v, want pose, outfit, face: %v", first.Images, want)
+	}
+	if first.Size != defaultSize || first.N != "1" {
+		t.Errorf("size = %q, n = %s", first.Size, first.N)
+	}
+	if !hasAll(first.Prompt, "Image 1 is a faceless gray mannequin", "Image 2 shows an outfit", "Image 3 is a portrait") {
+		t.Errorf("prompt = %q", first.Prompt)
+	}
+
+	// A gateway takes any key, so a typed one goes out as it stands.
+	if _, err := Generate(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", APIKey: "magpie-acme"}, r); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	second := seen[1]
+	mu.Unlock()
+	if second.Auth != "Bearer magpie-acme" {
+		t.Errorf("Authorization = %q", second.Auth)
+	}
+	// Such a server's catalog names need not be an image model's, so every model it lists is offered, and its connection test asks for no key.
+	ids, err := ListModels(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", Local: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"juggernautXL_v9", "sd-cpp-local"}; !slices.Equal(ids, want) {
+		t.Errorf("models = %v, want every one the server lists: %v", ids, want)
+	}
+	if err := CheckConnection(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", Local: true}); err != nil {
+		t.Errorf("a keyless server's connection test: %v", err)
 	}
 }
 

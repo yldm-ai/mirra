@@ -444,13 +444,7 @@ func (s *studio) serviceForm(cx *core.Scope) serviceForm {
 	}
 	privacy := func() string {
 		p, _ := s.current()
-		switch {
-		case !s.keyKept.Get():
-			return t.PrivacyWeb()
-		case p.OwnServer:
-			return t.PrivacyLocal()
-		}
-		return t.PrivacyCloud()
+		return privacyLine(p, s.keyKept.Get(), t)
 	}
 	sections := func(cx *core.Scope) (main, advanced []core.Node) {
 		p, set := s.current()

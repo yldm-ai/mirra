@@ -48,6 +48,8 @@ type provider struct {
 	KeyOptional bool
 	// OwnServer marks software the user runs on their own machine, which costs nothing a request.
 	OwnServer bool
+	// Gateway marks software the user runs that passes the request on to a service behind it, whose plan pays for it.
+	Gateway bool
 	// Deployment marks a service whose model is a deployment the user named, as Azure's is: it shows with the key, as the deployment's name, rather than among the advanced settings.
 	Deployment bool
 }
@@ -104,6 +106,8 @@ var providers = []provider{
 	{ID: "azure", Name: "Azure OpenAI", Logo: "azure", Protocol: protoAzure, URLHint: "https://<resource>.openai.azure.com/openai/v1", Model: defaultModel, Size: defaultSize, Deployment: true,
 		KeyURL: "https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/OpenAI"},
 	{ID: "sdcpp", Name: "stable-diffusion.cpp", Protocol: protoOpenAI, BaseURL: "http://127.0.0.1:1234/v1", Model: "sd-cpp-local", Size: defaultSize, KeyOptional: true, OwnServer: true},
+	// Magpie serves the image models of the accounts the user is signed into, a ChatGPT plan's GPT Image among them, from one local address, taking any key. It passes the request on to the service behind it, so it is a gateway, not a server of its own.
+	{ID: "magpie", Name: "Magpie", Protocol: protoOpenAI, BaseURL: "http://127.0.0.1:3425/v1", Model: defaultModel, Size: defaultSize, KeyOptional: true, Gateway: true},
 	{ID: providerCustom, Name: "OpenAI-compatible", Local: func(t locales.Messages) string { return t.ProviderCustom() }, Protocol: protoOpenAI, URLHint: defaultLocalURL,
 		Model: defaultModel, Size: defaultSize, KeyOptional: true},
 }
@@ -116,6 +120,19 @@ func providerByID(id string) provider {
 		}
 	}
 	return providers[0]
+}
+
+// privacyLine is what the settings say about where the requests go: a browser keeps no key, a gateway passes the request on to a service behind it, a server the user runs answers it, and a cloud service is asked directly.
+func privacyLine(p provider, keyKept bool, t locales.Messages) string {
+	switch {
+	case !keyKept:
+		return t.PrivacyWeb()
+	case p.Gateway:
+		return t.PrivacyGateway()
+	case p.OwnServer:
+		return t.PrivacyLocal()
+	}
+	return t.PrivacyCloud()
 }
 
 // providerSettings are what the user set for one provider: "" keeps the preset's address, model or size.
