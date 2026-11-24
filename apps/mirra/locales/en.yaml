@@ -231,6 +231,7 @@ statusFailed:
   description: The service's status after its test failed.
 privacyCloud: The key stays in this device's keychain. Requests go straight from your device to the service you set up, through no other server.
 privacyLocal: Requests go straight from your device to your own server, through no other server, at no cost.
+privacyGateway: Requests go from your device to the gateway on your own machine, which sends them on to the service behind it; that service's plan pays for them.
 privacyWeb: "This web version keeps no key once the page closes; enter it again after a reload. Requests go straight from your browser to the service you set up."
 pageOnly: In the web version, pictures and clothes last as long as this page. Export the ones you want to keep.
 keyUnavailable: This device has no secure store for the key.

@@ -108,6 +108,7 @@ go tool nsgo build                   # 打包 nsgo.yaml 里列出的所有平台
 | 阿里云百炼 | 千问图像编辑的多模态生成接口；最多 3 张图 | `qwen-image-2.0-pro` |
 | Azure OpenAI | 在你资源的 `/openai/v1` 上调用 OpenAI 的编辑接口，`api-key` 请求头 | 你的部署名 |
 | stable-diffusion.cpp | 它的服务端提供的 OpenAI 兼容 `/images/edits` | `sd-cpp-local` |
+| Magpie | 本机网关提供的 OpenAI 兼容 `/images/edits`，可用你已登录账号的图像模型 | `gpt-image-2` |
 | 自定义 | 任何 OpenAI 兼容的 `/images/edits` | `gpt-image-2` |
 
 Key 存在 macOS / iOS 钥匙串、Android Keystore 或 Windows 凭据管理器里。尺寸可选竖版（`1024x1536`）、方形（`1024x1024`）或横版（`1536x1024`）；只接受宽高比的服务商会用对应的比例，比如 `2:3`。
@@ -128,6 +129,7 @@ Key 存在 macOS / iOS 钥匙串、Android Keystore 或 Windows 凭据管理器�
 ## 隐私
 
 - 只有按下「生成」或「测试连接」时，App 才会访问你配置的服务，发送的只有你选的图片（图库图片或你的衣服照片）和 prompt。
+- 你自己运行的网关（如 Magpie）会把请求转发给背后的服务，费用计入那个服务的套餐。
 - 你上传的衣服照片只存在 App 的数据目录里。
 - 图库会看到你打开的缩略图和原图的请求，和用浏览器访问一样。
 - 新生成的图片在保存前单独存放；保存到作品后一直留在 App 的数据目录里，直到你删除。

@@ -169,6 +169,7 @@ statusTesting: "{service} · prova in corso…"
 statusFailed: "{service} · impossibile connettersi"
 privacyCloud: La chiave resta nel portachiavi di questo dispositivo. Le richieste vanno direttamente dal tuo dispositivo al servizio che hai configurato, senza passare da altri server.
 privacyLocal: Le richieste vanno direttamente dal tuo dispositivo al tuo server, senza passare da altri server e senza costi.
+privacyGateway: Le richieste vanno dal tuo dispositivo al gateway sulla tua macchina, che le inoltra al servizio dietro di esso; contano nel suo piano.
 privacyWeb: La versione web non conserva la chiave dopo la chiusura della pagina; inseriscila di nuovo dopo un ricaricamento. Le richieste vanno direttamente dal tuo browser al servizio che hai configurato.
 pageOnly: Nella versione web, immagini e vestiti durano quanto questa pagina. Esporta quelli che vuoi tenere.
 keyUnavailable: Questo dispositivo non ha un archivio sicuro per la chiave.

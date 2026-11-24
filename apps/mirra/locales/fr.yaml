@@ -169,6 +169,7 @@ statusTesting: "{service} · test en cours…"
 statusFailed: "{service} · connexion impossible"
 privacyCloud: La clé reste dans le trousseau de cet appareil. Les requêtes vont directement de votre appareil au service configuré, sans passer par un autre serveur.
 privacyLocal: Les requêtes vont directement de votre appareil à votre propre serveur, sans passer par un autre serveur et sans frais.
+privacyGateway: Les requêtes vont de votre appareil vers la passerelle sur votre machine, qui les transmet au service derrière elle ; elles comptent dans son forfait.
 privacyWeb: La version web ne conserve pas la clé après la fermeture de la page ; saisissez-la à nouveau après un rechargement. Les requêtes vont directement de votre navigateur au service configuré.
 pageOnly: Dans la version web, les images et les vêtements ne sont conservés que tant que cette page reste ouverte. Exportez ceux que vous voulez garder.
 keyUnavailable: Cet appareil n’a pas de stockage sécurisé pour la clé.
