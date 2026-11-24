@@ -26,7 +26,7 @@ func shotEyebrow(t locales.Messages, sh *shot) string {
 	return t.EyebrowNewLook(sh.Attempt)
 }
 
-// swapOutfits are the outfits one tap puts on the same face and pose: the favorites, the user's clothes, then the gallery's in the chip on show, without the one being worn.
+// swapOutfits are the outfits one tap puts on the same face and pose: the favorites, the user's clothes, then the gallery's in the chip on show, without the one being worn. The gallery's adults-only items come only while the outfit gallery is the one on show with its 18+ chip on — the swap row sits on the shot, a different screen, so an adults-only choice made against the gallery is not an adults-only offer here; the favorites and the user's own clothes need no such gate, since each was put there by the user already.
 func (s *studio) swapOutfits() []Item {
 	var out []Item
 	seen := map[string]bool{}
@@ -46,7 +46,8 @@ func (s *studio) swapOutfits() []Item {
 	}
 	add(s.favorites.Get())
 	add(s.uploads.Get())
-	add(loaded(s.catalogs[KindCostume]).InGroup(s.filter[KindCostume].Get(), s.adult[KindCostume].Get()))
+	adult := s.adult[KindCostume].Get() && s.wide() && s.step.Get() == KindCostume
+	add(loaded(s.catalogs[KindCostume]).InGroup(s.filter[KindCostume].Get(), adult))
 	return out
 }
 

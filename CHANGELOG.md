@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The shot's swap row no longer offers a gallery's adults-only outfit: an 18+ chip is a choice made against that kind's own gallery, and the shot is a different screen; favorites and the user's own clothes are still offered.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.

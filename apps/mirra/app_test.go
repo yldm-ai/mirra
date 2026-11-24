@@ -131,6 +131,28 @@ func TestRegenerateAndSwapOutfit(t *testing.T) {
 	}
 }
 
+// TestSwapRowKeepsAdultChoicesOut turns the outfit gallery's 18+ chip on while a shot is on show and checks the shot's swap row offers no adults-only outfit: an 18+ chip is a choice made against that kind's own gallery, and the shot is not that gallery.
+func TestSwapRowKeepsAdultChoicesOut(t *testing.T) {
+	api := &fakeAPI{}
+	app, _ := start(t, api, "k", nsgotest.PendingAlerts())
+	makeLook(t, app)
+	app.WaitFor("id:shot-image", wait)
+
+	app.Press("text:Wardrobe")
+	app.Press("id:closet-gallery")
+	app.WaitFor(outfitKnit, wait)
+	app.Press("id:chip-adult")
+	app.Answer(1)
+	app.WaitFor(outfitLingerie, wait)
+
+	// The shot stays on the Studio tab's nav stack while the chip is turned on in the wardrobe; the swap row under it must not offer the adults-only outfit the chip just let into the gallery.
+	app.Press("text:Studio")
+	app.WaitFor("id:shot-image", wait)
+	if app.Exists("label:Wear x") {
+		t.Error("an adults-only outfit is offered as a swap on the shot")
+	}
+}
+
 func TestFavoriteSavesAndFilters(t *testing.T) {
 	app, dir := start(t, &fakeAPI{}, "k")
 	makeLook(t, app)
