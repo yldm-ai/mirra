@@ -697,7 +697,7 @@ func (s *studio) confirmAdult(then func()) {
 	})
 }
 
-// setAdultOK is the settings' 18+ switch: on asks the age question, off forgets the answer and leaves any 18+ category on show, so the galleries ask again.
+// setAdultOK is the settings' 18+ switch: on asks the age question, off forgets the answer and hides any 18+ category on show, so the galleries ask again.
 func (s *studio) setAdultOK(on bool) {
 	if on {
 		s.confirmAdult(nil)

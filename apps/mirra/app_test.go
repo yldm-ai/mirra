@@ -740,7 +740,7 @@ func TestBackgroundTab(t *testing.T) {
 	app.WaitFor("text:No background", wait)
 }
 
-// TestAdultSetting turns the galleries' 18+ categories on in the settings, which asks the age once, and off again, which forgets the answer and leaves an 18+ category on show.
+// TestAdultSetting turns the galleries' 18+ categories on in the settings, which asks the age once, and off again, which forgets the answer and hides an 18+ category on show.
 func TestAdultSetting(t *testing.T) {
 	app, _ := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts())
 	app.Press("text:Me")
