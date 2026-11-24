@@ -316,10 +316,11 @@ func (s *studio) clearBackground() {
 	}
 }
 
-// surprise chooses a face, an outfit and a pose at random, each from what its gallery shows: its chip and, only where the user turned it on, its adults-only items. The background stays as the user left it.
+// surprise chooses a face, an outfit and a pose at random, each from what its gallery shows: its chip and, only where that kind's own gallery is the one on show with its adults-only items turned on, those items. The background stays as the user left it. A kind's adults-only chip is a choice made against that kind's own gallery, and on the phone's home screen — where no gallery is showing — the draw is always from the items for everyone.
 func (s *studio) surprise() {
 	for _, k := range lookKinds {
-		items := loaded(s.catalogs[k]).InGroup(s.filter[k].Get(), s.adult[k].Get())
+		adult := s.adult[k].Get() && s.wide() && s.step.Get() == k
+		items := loaded(s.catalogs[k]).InGroup(s.filter[k].Get(), adult)
 		if len(items) > 0 {
 			s.choose(k, items[rand.IntN(len(items))])
 		}

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Surprise button on the phone's home no longer draws from a gallery's adults-only items: an 18+ chip is a choice made against that kind's own gallery, and on a screen with no gallery showing the draw is always from the items for everyone.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.

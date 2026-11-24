@@ -571,6 +571,37 @@ func TestSurpriseChoosesAShownLook(t *testing.T) {
 	}
 }
 
+// TestSurpriseKeepsAdultChoicesOut turns a gallery's 18+ chip on, then asks for a surprise from the phone's home, where no gallery is showing, and checks the draw stayed with the items for everyone: an 18+ chip is a choice made against its own gallery, not against the dice on another screen.
+func TestSurpriseKeepsAdultChoicesOut(t *testing.T) {
+	api := &fakeAPI{}
+	app, _ := start(t, api, "k", nsgotest.PendingAlerts())
+	app.Press("text:Wardrobe")
+	app.Press("id:closet-gallery")
+	app.WaitFor(outfitKnit, wait)
+	app.Press("id:chip-adult")
+	app.Answer(1)
+	app.WaitFor(outfitLingerie, wait)
+
+	app.Press("text:Studio")
+	app.WaitFor("id:surprise", wait)
+	// The galleries load after the first frame; a press before they have is a no-op.
+	app.WaitUntil(wait, func() bool {
+		app.Press("id:surprise")
+		return app.Enabled("id:generate")
+	})
+	app.Press("id:generate")
+	app.WaitFor("id:shot-image", wait)
+	got := api.last().Images
+	for _, img := range got {
+		if img == "LNG-0001.png" || img == "full_sexy_P000_front.png" || img == "full_sexy_P004_front.png" {
+			t.Errorf("images = %v, want no adults-only item in a surprise made on the home screen", got)
+		}
+	}
+	if len(got) != 3 || got[0] != "full_std_P001_front.png" || (got[1] != "SPR-0001.png" && got[1] != "WIN-0001.png") || (got[2] != "f001.png" && got[2] != "f002.png") {
+		t.Errorf("images = %v, want the front pose, an outfit and a face for everyone", got)
+	}
+}
+
 // TestDesktopColumnsResize opens the side columns at a share of the window, wider in a wider one, lets the user drag the gutter between them, and keeps what they dragged to for the next launch.
 func TestDesktopColumnsResize(t *testing.T) {
 	width := func(app *nsgotest.App, id string) core.Points { return app.Find("id:" + id).Frame.Size.Width }
