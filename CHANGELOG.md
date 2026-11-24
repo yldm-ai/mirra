@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A picture generated but never saved to Works is now removed when its page closes or the look changes, instead of staying on the device where nothing could reach it; on the web version this frees the memory each picture held until the page was reloaded.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.

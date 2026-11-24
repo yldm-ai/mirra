@@ -51,6 +51,16 @@ func works(t *testing.T, dir string) []work {
 	return ws
 }
 
+// results counts the pictures generated but not saved to Works.
+func results(t *testing.T, dir string) []string {
+	t.Helper()
+	names, err := filePictures{}.List(filepath.Join(dir, "results"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return names
+}
+
 // choose presses a gallery cell until it reports itself chosen. On the macOS target a press while a pushed page is still moving in is lost, and neither Settle nor the view tree says when the move ends, so there the press first waits out the transition: https://github.com/nsgo-dev/nsgo/issues/854
 func choose(t *testing.T, app *nsgotest.App, selector string) {
 	t.Helper()
@@ -128,6 +138,36 @@ func TestRegenerateAndSwapOutfit(t *testing.T) {
 	app.WaitFor("text:/TRY 3/", wait)
 	if got := api.last().Images; len(got) != 3 || got[1] != "SPR-0001.png" {
 		t.Errorf("swapped images = %v, want the other outfit", got)
+	}
+}
+
+// TestClosingAshotRemovesIt frees a picture that was generated but not saved when its page closes: nothing lists results/, so one left there could never be reached or freed — a leak on a browser, which keeps every picture in memory.
+func TestClosingAShotRemovesIt(t *testing.T) {
+	app, dir := start(t, &fakeAPI{}, "k")
+	makeLook(t, app)
+	app.WaitFor("id:shot-image", wait)
+	if n := len(results(t, dir)); n != 1 {
+		t.Fatalf("results = %d, want the generated picture kept while its page is open", n)
+	}
+	app.Press("id:close-shot")
+	app.WaitUntil(wait, func() bool { return len(results(t, dir)) == 0 })
+	if n := len(results(t, dir)); n != 0 {
+		t.Errorf("results = %d, want the unsaved picture removed once its page closed", n)
+	}
+}
+
+// TestDismissingAShotRemovesIt frees a picture that was generated but not saved when the phone's back pops its page — the back gesture goes through the screen's OnDismiss, not the close button, so both ways off the page must free it.
+func TestDismissingAShotRemovesIt(t *testing.T) {
+	app, dir := start(t, &fakeAPI{}, "k")
+	makeLook(t, app)
+	app.WaitFor("id:shot-image", wait)
+	if n := len(results(t, dir)); n != 1 {
+		t.Fatalf("results = %d, want the generated picture kept while its page is open", n)
+	}
+	app.HeaderBack("id:shot")
+	app.WaitUntil(wait, func() bool { return len(results(t, dir)) == 0 })
+	if n := len(results(t, dir)); n != 0 {
+		t.Errorf("results = %d, want the unsaved picture removed once its page was popped", n)
 	}
 }
 

@@ -34,7 +34,7 @@ func (s *studio) phoneStudio(cx *core.Scope) core.Node {
 		case pageEditor:
 			return s.editorPage(cx)
 		case pageShot:
-			return core.Screen{HeaderHidden: true, Style: fill, Children: []core.Node{s.shotPage(cx)}, OnDismiss: func() { s.shot.Set(nil) }}
+			return core.Screen{HeaderHidden: true, Style: fill, Children: []core.Node{s.shotPage(cx)}, OnDismiss: s.dropShot}
 		}
 		return s.homePage(cx)
 	})

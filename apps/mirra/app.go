@@ -303,17 +303,13 @@ func (s *studio) dir(name string) string {
 
 func (s *studio) choose(k Kind, it Item) {
 	s.chosen[k].Set(&it)
-	if sh := s.shot.Get(); sh != nil && sh.Saved == nil {
-		s.shot.Set(nil)
-	}
+	s.dropShot()
 }
 
 // clearBackground goes back to no background, which leaves the scene to the style.
 func (s *studio) clearBackground() {
 	s.chosen[KindBackground].Set(nil)
-	if sh := s.shot.Get(); sh != nil && sh.Saved == nil {
-		s.shot.Set(nil)
-	}
+	s.dropShot()
 }
 
 // surprise chooses a face, an outfit and a pose at random, each from what its gallery shows: its chip and, only where the user turned it on, its adults-only items. The background stays as the user left it.
@@ -456,6 +452,7 @@ func (s *studio) cancelGenerating() {
 
 // showShot puts a picture on show: in the desktop's canvas, or as the phone studio's result page.
 func (s *studio) showShot(sh *shot) {
+	s.dropShot()
 	s.shot.Set(sh)
 	s.section.Set(sectionStudio)
 	if !s.wide() {
@@ -463,9 +460,20 @@ func (s *studio) showShot(sh *shot) {
 	}
 }
 
+// dropShot clears the picture on show, removing its file where it was never saved to Works: nothing lists results/, so one left there after the shot goes could never be reached or freed — a leak on a browser, which keeps every picture in memory.
+func (s *studio) dropShot() {
+	sh := s.shot.Get()
+	s.shot.Set(nil)
+	if sh != nil && sh.Saved == nil {
+		// Remove in the background; a miss is harmless where the file is already gone, as after a delete that removed it.
+		st, path := s.pics, sh.Path
+		go func() { _ = st.Remove(path) }()
+	}
+}
+
 // closeShot leaves the picture on show and goes back to the look.
 func (s *studio) closeShot() {
-	s.shot.Set(nil)
+	s.dropShot()
 	if !s.wide() {
 		s.studioNav.SetRoutes(route{page: pageHome})
 	}
