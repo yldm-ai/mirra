@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- On the phone the model, provider and language pickers open as a sheet from the bottom that scrolls, where a popup cut the list off; the picture's close, export, delete and favorite buttons sit under the status bar instead of beneath it.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.

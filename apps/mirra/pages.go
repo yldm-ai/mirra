@@ -129,7 +129,7 @@ func (s *studio) shotPage(cx *core.Scope) core.Node {
 		}
 		picture := core.View{Style: fill, Children: []core.Node{
 			core.Image{Source: s.src(sh.Path), ResizeMode: core.Contain, TestID: "shot-image", Label: lookTitle(t, sh.Req), Style: core.Style{Width: core.Pct(100), Height: core.Pct(100)}},
-			core.View{Style: core.Style{Position: core.Absolute, Top: core.Pt(12), Left: core.Pt(16), Right: core.Pt(16), Direction: core.Row, Gap: 10}, Children: []core.Node{
+			core.View{Style: core.Style{Position: core.Absolute, Top: core.Pt(12), Left: core.Pt(16), Right: core.Pt(16), Direction: core.Row, Gap: 10, PaddingEnv: core.EnvEdges{Top: core.EnvSafeArea}}, Children: []core.Node{
 				ui.IconButton{Icon: lucide.X, Label: t.Close(), Variant: ui.IconButtonRaised, TestID: "close-shot", OnPress: s.closeShot},
 				core.View{Style: core.Style{FlexGrow: 1}},
 				ui.IconButton{Icon: lucide.Download, Label: t.Export(), Variant: ui.IconButtonRaised, TestID: "export", OnPress: func() { s.saveFile(cx, sh.Path) }},
@@ -346,7 +346,7 @@ func (s *studio) modelPicker(cx *core.Scope, p provider, set providerSettings, s
 		return out
 	}
 	picker := ui.Select[string]{Label: t.Model(), OptionsFunc: options, Value: value, Searchable: true, SearchPlaceholder: t.SearchModels(), Empty: t.NoModelMatches(),
-		TestID: "model", Style: core.Style{Width: core.Pct(100)},
+		Presentation: s.selectPresentation(), TestID: "model", Style: core.Style{Width: core.Pct(100)},
 		OnChange: func(v string) {
 			if v == p.Model {
 				v = ""
@@ -429,7 +429,7 @@ func (s *studio) serviceForm(cx *core.Scope) serviceForm {
 		options = append(options, ui.Option[string]{Value: p.ID, Label: p.name(t), TestID: "provider-" + p.ID,
 			Leading: core.Icon{SVG: p.icon(), Label: p.name(t), Style: core.Style{FontSize: 18}}})
 	}
-	picker := ui.Select[string]{Label: t.Provider(), Options: options, Value: s.provider.Get, TestID: "provider", Style: core.Style{Width: core.Pt(controlWidth)},
+	picker := ui.Select[string]{Label: t.Provider(), Options: options, Value: s.provider.Get, Presentation: s.selectPresentation(), TestID: "provider", Style: core.Style{Width: core.Pt(controlWidth)},
 		OnChange: func(id string) {
 			s.provider.Set(id)
 			s.showKey.Set(false)

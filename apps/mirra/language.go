@@ -26,7 +26,7 @@ func (s *studio) languageRow(cx *core.Scope) core.Node {
 	for _, l := range locales.Catalog.Languages() {
 		options = append(options, ui.Option[string]{Value: l, Label: locales.In(l).LanguageName(), TestID: "language-" + l})
 	}
-	picker := ui.Select[string]{Label: t.Language(), Options: options, Value: lang.Get, TestID: "language", Style: core.Style{Width: core.Pt(180)},
+	picker := ui.Select[string]{Label: t.Language(), Options: options, Value: lang.Get, Presentation: s.selectPresentation(), TestID: "language", Style: core.Style{Width: core.Pt(180)},
 		OnChange: func(v string) {
 			lang.Set(v)
 			cx.SetLocale(v)

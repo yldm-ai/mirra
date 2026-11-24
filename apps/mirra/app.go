@@ -354,6 +354,14 @@ func (s *studio) angles(pose *Item) []*Item {
 
 func (s *studio) wide() bool { return s.cx.Env().Window().Width >= wideWidth }
 
+// selectPresentation shows a Select's list as a bottom sheet where the window is narrow, the phone's presentation for a picker a popup's room and scroll can't hold, and a popup where it is wide.
+func (s *studio) selectPresentation() base.Presentation {
+	if s.wide() {
+		return base.PresentPopup
+	}
+	return base.PresentSheet
+}
+
 func (s *studio) toastError(title string, err error) {
 	s.toaster.Show(ui.ToastContent{Type: ui.ToastError, Title: title, Description: explain(locales.For(s.cx), err)})
 }
