@@ -120,11 +120,11 @@ func TestRegenerateAndSwapOutfit(t *testing.T) {
 	app, _ := start(t, api, "k")
 	makeLook(t, app)
 	app.Press("id:regenerate")
-	app.WaitUntil(wait, func() bool { return len(api.requests) == 2 })
+	app.WaitUntil(wait, func() bool { return api.count() == 2 })
 	app.WaitFor("text:/TRY 2/", wait)
 
 	app.Press("id:swap-0")
-	app.WaitUntil(wait, func() bool { return len(api.requests) == 3 })
+	app.WaitUntil(wait, func() bool { return api.count() == 3 })
 	app.WaitFor("text:/TRY 3/", wait)
 	if got := api.last().Images; len(got) != 3 || got[1] != "SPR-0001.png" {
 		t.Errorf("swapped images = %v, want the other outfit", got)
@@ -183,7 +183,7 @@ func TestNoServiceOpensSettings(t *testing.T) {
 	}
 	app.Press("id:generate")
 	app.WaitFor("id:settings", wait)
-	if len(api.requests) != 0 {
+	if api.count() != 0 {
 		t.Error("the app called the image API without a key")
 	}
 }
@@ -548,7 +548,7 @@ func TestSheetOfAllAngles(t *testing.T) {
 		t.Fatalf("works = %+v", ws)
 	}
 	app.Press("id:regenerate")
-	app.WaitUntil(wait, func() bool { return len(api.requests) == 2 })
+	app.WaitUntil(wait, func() bool { return api.count() == 2 })
 	if got := api.last().Images; len(got) == 0 || got[0] != "angles.png" {
 		t.Errorf("Generate again sent %v, not the sheet", got)
 	}

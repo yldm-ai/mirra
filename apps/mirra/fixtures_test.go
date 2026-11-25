@@ -78,6 +78,13 @@ func (f *fakeAPI) last() editRequest {
 	return f.requests[len(f.requests)-1]
 }
 
+// count reads the recorded request count under the same mutex the handler records with: tests poll it while the fake server answers, and an unguarded read races that append.
+func (f *fakeAPI) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.requests)
+}
+
 // newServer serves the three galleries under /pose, /costume and /face, and the image API under /v1.
 func newServer(t testing.TB, api *fakeAPI) (*httptest.Server, Sites) {
 	t.Helper()
