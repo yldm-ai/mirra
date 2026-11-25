@@ -8,6 +8,7 @@ import (
 	"github.com/nsgo-dev/nsgo/core"
 	desktoplocales "github.com/nsgo-dev/nsgo/desktop/locales"
 	"github.com/nsgo-dev/nsgo/i18n"
+	mobilelocales "github.com/nsgo-dev/nsgo/mobile/locales"
 	updaterlocales "github.com/nsgo-dev/nsgo/updater/locales"
 	"strings"
 	"time"
@@ -1495,6 +1496,51 @@ func init() {
 		},
 		GuideDrag: func(app string, permission string) string {
 			return "將 " + app + " 拖移到上方列表以允許「" + permission + "」。"
+		},
+	})
+	mobilelocales.Supply("de", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "Neu",
+		},
+	})
+	mobilelocales.Supply("es", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "Nuevo",
+		},
+	})
+	mobilelocales.Supply("fr", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "Nouveau",
+		},
+	})
+	mobilelocales.Supply("it", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "Nuovo",
+		},
+	})
+	mobilelocales.Supply("ja", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "新着",
+		},
+	})
+	mobilelocales.Supply("ko", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "새 콘텐츠",
+		},
+	})
+	mobilelocales.Supply("pt-BR", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "Novo",
+		},
+	})
+	mobilelocales.Supply("ru", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "Новое",
+		},
+	})
+	mobilelocales.Supply("zh-Hant", mobilelocales.Translation{
+		Texts: map[string]string{
+			"tabBadgeNew": "有新內容",
 		},
 	})
 	updaterlocales.Supply("de", updaterlocales.Translation{

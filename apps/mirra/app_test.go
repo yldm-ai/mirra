@@ -424,7 +424,7 @@ func TestUploadedClothesAreWorn(t *testing.T) {
 	api := &fakeAPI{}
 	app, _ := start(t, api, "k")
 	app.Press("text:Wardrobe")
-	app.PickImages = func(core.PickRequest) []core.PickedFile {
+	app.PickImages = func(nsgotest.ImagePick) []core.PickedFile {
 		return []core.PickedFile{{Name: "shirt.png", MIME: "image/png", Data: tinyPNG(t)}}
 	}
 	app.Press("id:upload")

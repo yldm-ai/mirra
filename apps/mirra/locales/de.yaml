@@ -333,3 +333,6 @@ github.com/nsgo-dev/nsgo/base/textview/locales:
   alertImportant: Wichtig
   alertWarning: Warnung
   alertCaution: Vorsicht
+
+github.com/nsgo-dev/nsgo/mobile/locales:
+  tabBadgeNew: Neu

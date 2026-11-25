@@ -333,3 +333,6 @@ github.com/nsgo-dev/nsgo/base/textview/locales:
   alertImportant: 중요
   alertWarning: 경고
   alertCaution: 주의
+
+github.com/nsgo-dev/nsgo/mobile/locales:
+  tabBadgeNew: 새 콘텐츠
