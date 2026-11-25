@@ -29,6 +29,21 @@ jobs:
         working-directory: apps/mirra
         run: go tool nsgo test .
 
+  # The web target runs the tests in a headless browser the runner has, so the browser build is tested too.
+  test-web:
+    name: Test (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/mirra/go.mod
+          cache-dependency-path: apps/mirra/go.sum
+      - name: Test in the browser
+        working-directory: apps/mirra
+        run: go tool nsgo test -target web .
+
   # iOS needs Xcode's SDK, so the check runs on macOS.
   check:
     name: Check (macOS, iOS, Android, Windows, web)
