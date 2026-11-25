@@ -8,7 +8,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
@@ -27,12 +26,12 @@ type apiCall struct {
 }
 
 // fakeProvider answers path with answer and records every call; answer gets the server's URL, for links to pictures it serves at /pic.png.
-func fakeProvider(t *testing.T, path string, answer func(url string, w http.ResponseWriter, c apiCall)) (*httptest.Server, func() []apiCall) {
+func fakeProvider(t *testing.T, path string, answer func(url string, w http.ResponseWriter, c apiCall)) (*fakeServer, func() []apiCall) {
 	t.Helper()
 	var mu sync.Mutex
 	var calls []apiCall
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var srv *fakeServer
+	srv = serve(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/pic.png" {
 			w.Write(tinyPNG(t))
 			return
@@ -60,7 +59,6 @@ func fakeProvider(t *testing.T, path string, answer func(url string, w http.Resp
 		}
 		answer(srv.URL, w, c)
 	}))
-	t.Cleanup(srv.Close)
 	return srv, func() []apiCall {
 		mu.Lock()
 		defer mu.Unlock()
@@ -106,7 +104,7 @@ func TestGeminiRequest(t *testing.T) {
 		io.WriteString(w, `{"candidates":[{"content":{"parts":[{"text":"Here you go"},{"inlineData":{"mimeType":"image/png","data":"`+b64(t)+`"}}]}}]}`)
 	})
 	cfg := Config{Protocol: protoGemini, BaseURL: srv.URL + "/v1beta", APIKey: " gk ", Model: "img-model", Size: "1024x1536"}
-	pics, err := generate(context.Background(), http.DefaultClient, cfg, "the prompt", testParts(t), 2)
+	pics, err := generate(context.Background(), srv.Client(), cfg, "the prompt", testParts(t), 2)
 	wantPictures(t, pics, err, 2)
 	got := calls()
 	if len(got) != 2 {
@@ -133,7 +131,7 @@ func TestGeminiBlocked(t *testing.T) {
 	srv, _ := fakeProvider(t, "/v1beta/models/m:generateContent", func(_ string, w http.ResponseWriter, _ apiCall) {
 		io.WriteString(w, `{"promptFeedback":{"blockReason":"SAFETY"}}`)
 	})
-	_, err := generate(context.Background(), http.DefaultClient, Config{Protocol: protoGemini, BaseURL: srv.URL + "/v1beta", APIKey: "k", Model: "m"}, "p", testParts(t), 1)
+	_, err := generate(context.Background(), srv.Client(), Config{Protocol: protoGemini, BaseURL: srv.URL + "/v1beta", APIKey: "k", Model: "m"}, "p", testParts(t), 1)
 	if err == nil || !strings.Contains(err.Error(), "SAFETY") {
 		t.Errorf("err = %v, want the block reason", err)
 	}
@@ -144,7 +142,7 @@ func TestSeedreamRequest(t *testing.T) {
 		io.WriteString(w, `{"data":[{"b64_json":"`+b64(t)+`","size":"1024x1536"}]}`)
 	})
 	cfg := Config{Protocol: protoSeedream, BaseURL: srv.URL + "/api/v3/", APIKey: "ark", Model: "seedream", Size: "1024x1536"}
-	pics, err := generate(context.Background(), http.DefaultClient, cfg, "p", testParts(t), 3)
+	pics, err := generate(context.Background(), srv.Client(), cfg, "p", testParts(t), 3)
 	wantPictures(t, pics, err, 3)
 	got := calls()
 	if len(got) != 3 {
@@ -165,7 +163,7 @@ func TestXAIRequest(t *testing.T) {
 		io.WriteString(w, `{"data":[{"b64_json":"`+b64(t)+`"},{"b64_json":"`+b64(t)+`"}]}`)
 	})
 	cfg := Config{Protocol: protoXAI, BaseURL: srv.URL + "/v1", APIKey: "xk", Model: "grok", Size: "1024x1536"}
-	pics, err := generate(context.Background(), http.DefaultClient, cfg, "p", testParts(t), 2)
+	pics, err := generate(context.Background(), srv.Client(), cfg, "p", testParts(t), 2)
 	wantPictures(t, pics, err, 2)
 	c := calls()[0]
 	images := asList(c.Body["images"])
@@ -182,7 +180,7 @@ func TestOpenRouterRequest(t *testing.T) {
 		io.WriteString(w, `{"data":[{"b64_json":"`+b64(t)+`","media_type":"image/png"}]}`)
 	})
 	cfg := Config{Protocol: protoOpenRouter, BaseURL: srv.URL + "/api/v1", APIKey: "or", Model: "vendor/model", Size: "1024x1536"}
-	pics, err := generate(context.Background(), http.DefaultClient, cfg, "p", testParts(t), 1)
+	pics, err := generate(context.Background(), srv.Client(), cfg, "p", testParts(t), 1)
 	wantPictures(t, pics, err, 1)
 	c := calls()[0]
 	refs := asList(c.Body["input_references"])
@@ -199,7 +197,7 @@ func TestDashScopeRequest(t *testing.T) {
 		io.WriteString(w, `{"output":{"choices":[{"message":{"role":"assistant","content":[{"image":"`+url+`/pic.png"},{"image":"`+url+`/pic.png"}]}}]},"request_id":"r"}`)
 	})
 	cfg := Config{Protocol: protoDashScope, BaseURL: srv.URL + "/api/v1", APIKey: "ds", Model: "qwen-image", Size: "1024x1536"}
-	pics, err := generate(context.Background(), http.DefaultClient, cfg, "the prompt", testParts(t), 2)
+	pics, err := generate(context.Background(), srv.Client(), cfg, "the prompt", testParts(t), 2)
 	wantPictures(t, pics, err, 2)
 	c := calls()[0]
 	content := asList(asMap(asList(asMap(c.Body["input"])["messages"])[0])["content"])
@@ -217,7 +215,7 @@ func TestDashScopeError(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 		io.WriteString(w, `{"request_id":"r","code":"InvalidApiKey","message":"Invalid API-key provided."}`)
 	})
-	_, err := generate(context.Background(), http.DefaultClient, Config{Protocol: protoDashScope, BaseURL: srv.URL + "/api/v1", APIKey: "bad"}, "p", testParts(t), 1)
+	_, err := generate(context.Background(), srv.Client(), Config{Protocol: protoDashScope, BaseURL: srv.URL + "/api/v1", APIKey: "bad"}, "p", testParts(t), 1)
 	if err == nil || !strings.Contains(err.Error(), "Invalid API-key") {
 		t.Errorf("err = %v, want DashScope's message", err)
 	}
@@ -228,7 +226,7 @@ func TestAzureRequest(t *testing.T) {
 		io.WriteString(w, `{"data":[{"b64_json":"`+b64(t)+`"}]}`)
 	})
 	cfg := Config{Protocol: protoAzure, BaseURL: srv.URL + "/openai/v1", APIKey: "az", Model: "my-deployment", Size: "1024x1536"}
-	pics, err := generate(context.Background(), http.DefaultClient, cfg, "p", testParts(t), 1)
+	pics, err := generate(context.Background(), srv.Client(), cfg, "p", testParts(t), 1)
 	wantPictures(t, pics, err, 1)
 	c := calls()[0]
 	if c.Query != "api-version=preview" || c.Header.Get("api-key") != "az" || c.Header.Get("Authorization") != "" {
@@ -255,7 +253,7 @@ func TestRepeatReportsTheFailure(t *testing.T) {
 		}
 		io.WriteString(w, `{"data":[{"b64_json":"`+b64(t)+`"}]}`)
 	})
-	_, err := generate(context.Background(), http.DefaultClient, Config{Protocol: protoSeedream, BaseURL: srv.URL + "/api/v3", APIKey: "k"}, "p", testParts(t), 3)
+	_, err := generate(context.Background(), srv.Client(), Config{Protocol: protoSeedream, BaseURL: srv.URL + "/api/v3", APIKey: "k"}, "p", testParts(t), 3)
 	if err == nil || !strings.Contains(err.Error(), "sensitive content") {
 		t.Errorf("err = %v, want the failed call's message", err)
 	}
@@ -268,18 +266,18 @@ func TestCheckConnectionProtocols(t *testing.T) {
 		io.WriteString(w, `{"error":{"code":"MissingParameter","message":"The request failed because it is missing the model parameter."}}`)
 	})
 	ark := Config{Protocol: protoSeedream, BaseURL: srv.URL + "/api/v3", APIKey: "k"}
-	if err := CheckConnection(context.Background(), http.DefaultClient, ark); err != nil {
+	if err := CheckConnection(context.Background(), srv.Client(), ark); err != nil {
 		t.Errorf("a valid Ark key, which gets a 400 for the empty request: %v", err)
 	}
 	status = http.StatusUnauthorized
-	if err := CheckConnection(context.Background(), http.DefaultClient, ark); err == nil {
+	if err := CheckConnection(context.Background(), srv.Client(), ark); err == nil {
 		t.Error("an Ark key the API refused passed")
 	}
 
 	models, modelCalls := fakeProvider(t, "/v1beta/models", func(_ string, w http.ResponseWriter, _ apiCall) {
 		io.WriteString(w, `{"models":[]}`)
 	})
-	if err := CheckConnection(context.Background(), http.DefaultClient, Config{Protocol: protoGemini, BaseURL: models.URL + "/v1beta", APIKey: "gk"}); err != nil {
+	if err := CheckConnection(context.Background(), models.Client(), Config{Protocol: protoGemini, BaseURL: models.URL + "/v1beta", APIKey: "gk"}); err != nil {
 		t.Fatal(err)
 	}
 	if c := modelCalls()[0]; c.Method != http.MethodGet || c.Header.Get("x-goog-api-key") != "gk" {
@@ -288,7 +286,7 @@ func TestCheckConnectionProtocols(t *testing.T) {
 	azure, azureCalls := fakeProvider(t, "/openai/v1/models", func(_ string, w http.ResponseWriter, _ apiCall) {
 		io.WriteString(w, `{"data":[]}`)
 	})
-	if err := CheckConnection(context.Background(), http.DefaultClient, Config{Protocol: protoAzure, BaseURL: azure.URL + "/openai/v1", APIKey: "az"}); err != nil {
+	if err := CheckConnection(context.Background(), azure.Client(), Config{Protocol: protoAzure, BaseURL: azure.URL + "/openai/v1", APIKey: "az"}); err != nil {
 		t.Fatal(err)
 	}
 	if c := azureCalls()[0]; c.Header.Get("api-key") != "az" {
@@ -301,14 +299,14 @@ func TestCheckConnectionProtocols(t *testing.T) {
 		io.WriteString(w, `{"data":{"label":"sk-or-…"}}`)
 	})
 	or := Config{Protocol: protoOpenRouter, BaseURL: openrouter.URL + "/api/v1", APIKey: "ork"}
-	if err := CheckConnection(context.Background(), http.DefaultClient, or); err != nil {
+	if err := CheckConnection(context.Background(), openrouter.Client(), or); err != nil {
 		t.Fatal(err)
 	}
 	if c := keyCalls()[0]; c.Method != http.MethodGet || c.Header.Get("Authorization") != "Bearer ork" {
 		t.Errorf("OpenRouter's test = %s with %v", c.Method, c.Header)
 	}
 	keyStatus = http.StatusUnauthorized
-	if err := CheckConnection(context.Background(), http.DefaultClient, or); err == nil {
+	if err := CheckConnection(context.Background(), openrouter.Client(), or); err == nil {
 		t.Error("an OpenRouter key the API refused passed")
 	}
 }
@@ -347,8 +345,7 @@ func TestSafetyRefusals(t *testing.T) {
 	}
 
 	gemini := func(body string) error {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, body) }))
-		defer srv.Close()
+		srv := serve(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, body) }))
 		_, err := generate(context.Background(), srv.Client(), Config{Protocol: protoGemini, BaseURL: srv.URL, APIKey: "k", Model: "m"}, "p", nil, 1)
 		return err
 	}
@@ -359,10 +356,9 @@ func TestSafetyRefusals(t *testing.T) {
 		t.Errorf("Gemini's MAX_TOKENS: %v", err)
 	}
 
-	ark := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ark := serve(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, `{"data":[{"error":{"code":"OutputImageSensitiveContentDetected","message":"The generated image may contain sensitive information."}}]}`)
 	}))
-	defer ark.Close()
 	if _, err := generate(context.Background(), ark.Client(), Config{Protocol: protoSeedream, BaseURL: ark.URL, APIKey: "k", Model: "m"}, "p", nil, 1); !errors.Is(err, errBlocked) {
 		t.Errorf("Ark's per-image refusal: %v", err)
 	}
@@ -395,11 +391,10 @@ func TestEveryAPIIsOpenAICompatible(t *testing.T) {
 func TestListModels(t *testing.T) {
 	var gotPath, gotAuth string
 	answer := ""
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := serve(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath, gotAuth = r.URL.RequestURI(), r.Header.Get("Authorization")+r.Header.Get("x-goog-api-key")
 		io.WriteString(w, answer)
 	}))
-	defer srv.Close()
 	for _, c := range []struct {
 		name, answer, path string
 		protocol           protocol
@@ -422,11 +417,10 @@ func TestListModels(t *testing.T) {
 		}
 	}
 
-	refused := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	refused := serve(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		io.WriteString(w, `{"error":{"message":"bad key"}}`)
 	}))
-	defer refused.Close()
 	var status *statusError
 	if _, err := ListModels(context.Background(), refused.Client(), Config{BaseURL: refused.URL, APIKey: "k"}); !errors.As(err, &status) || status.Code != http.StatusUnauthorized {
 		t.Errorf("a refused key: %v", err)

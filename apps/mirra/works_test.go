@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// eachStore runs a test against the files the native apps keep and the memory a browser keeps.
+// eachStore runs a test against the files the native apps keep and the memory a browser keeps; the files run needs a file system, so the web skips it.
 func eachStore(t *testing.T, test func(t *testing.T, st pictures, root string)) {
-	t.Run("files", func(t *testing.T) { test(t, filePictures{}, t.TempDir()) })
+	t.Run("files", func(t *testing.T) { noFiles(t); test(t, filePictures{}, t.TempDir()) })
 	t.Run("memory", func(t *testing.T) { test(t, newMemPictures(), "/data") })
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -17,10 +16,10 @@ func ids(items []Item) []string {
 }
 
 func TestFetchCatalogs(t *testing.T) {
-	_, sites := newServer(t, &fakeAPI{})
+	srv, sites := newServer(t, &fakeAPI{})
 	ctx := context.Background()
 
-	poses, err := FetchCatalog(ctx, http.DefaultClient, sites, KindPose)
+	poses, err := FetchCatalog(ctx, srv.Client(), sites, KindPose)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +43,7 @@ func TestFetchCatalogs(t *testing.T) {
 		t.Errorf("first pose = %+v", first)
 	}
 
-	costumes, err := FetchCatalog(ctx, http.DefaultClient, sites, KindCostume)
+	costumes, err := FetchCatalog(ctx, srv.Client(), sites, KindCostume)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +63,7 @@ func TestFetchCatalogs(t *testing.T) {
 		t.Errorf("winter costumes = %+v", got)
 	}
 
-	faces, err := FetchCatalog(ctx, http.DefaultClient, sites, KindFace)
+	faces, err := FetchCatalog(ctx, srv.Client(), sites, KindFace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,8 +107,8 @@ func TestAdultPose(t *testing.T) {
 }
 
 func TestPoseAngles(t *testing.T) {
-	_, sites := newServer(t, &fakeAPI{})
-	poses, err := FetchCatalog(context.Background(), http.DefaultClient, sites, KindPose)
+	srv, sites := newServer(t, &fakeAPI{})
+	poses, err := FetchCatalog(context.Background(), srv.Client(), sites, KindPose)
 	if err != nil {
 		t.Fatal(err)
 	}

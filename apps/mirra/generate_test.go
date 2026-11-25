@@ -51,13 +51,13 @@ func TestGenerateSendsReferencesInOrder(t *testing.T) {
 	api := &fakeAPI{}
 	srv, sites := newServer(t, api)
 	ctx := context.Background()
-	poses, _ := FetchCatalog(ctx, http.DefaultClient, sites, KindPose)
-	costumes, _ := FetchCatalog(ctx, http.DefaultClient, sites, KindCostume)
-	faces, _ := FetchCatalog(ctx, http.DefaultClient, sites, KindFace)
+	poses, _ := FetchCatalog(ctx, srv.Client(), sites, KindPose)
+	costumes, _ := FetchCatalog(ctx, srv.Client(), sites, KindCostume)
+	faces, _ := FetchCatalog(ctx, srv.Client(), sites, KindFace)
 	winter := costumes.InGroup("冬", false)[0]
 
 	cfg := Config{BaseURL: srv.URL + "/v1/", APIKey: " sk-test ", Size: "1024x1024"}
-	got, err := Generate(ctx, http.DefaultClient, cfg, Request{Pose: &poses.Items[0], Costume: &winter, Face: &faces.Items[1], Count: 2})
+	got, err := Generate(ctx, srv.Client(), cfg, Request{Pose: &poses.Items[0], Costume: &winter, Face: &faces.Items[1], Count: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestGenerateBoundsCount(t *testing.T) {
 		count int
 		want  string
 	}{{0, "1"}, {maxCount + 5, "4"}} {
-		if _, err := Generate(context.Background(), http.DefaultClient, Config{BaseURL: srv.URL + "/v1", APIKey: "k"}, Request{Pose: pose, Count: tc.count}); err != nil {
+		if _, err := Generate(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", APIKey: "k"}, Request{Pose: pose, Count: tc.count}); err != nil {
 			t.Fatal(err)
 		}
 		if got := api.last().N; got != tc.want {
@@ -98,7 +98,7 @@ func TestGenerateErrors(t *testing.T) {
 	api := &fakeAPI{status: http.StatusBadRequest, errBody: `{"error":{"message":"Your request was rejected by the safety system."}}`}
 	srv, _ := newServer(t, api)
 	pose := &Item{Full: srv.URL + "/pose/img/a.png"}
-	_, err := Generate(context.Background(), http.DefaultClient, Config{BaseURL: srv.URL + "/v1", APIKey: "k"}, Request{Pose: pose})
+	_, err := Generate(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", APIKey: "k"}, Request{Pose: pose})
 	if err == nil || !strings.Contains(err.Error(), "safety system") {
 		t.Errorf("err = %v, want the API's message", err)
 	}
@@ -114,7 +114,7 @@ func TestGenerateLocalWithoutKey(t *testing.T) {
 	api := &fakeAPI{}
 	srv, _ := newServer(t, api)
 	pose := &Item{Full: srv.URL + "/pose/img/a.png"}
-	if _, err := Generate(context.Background(), http.DefaultClient, Config{BaseURL: srv.URL + "/v1", Local: true}, Request{Pose: pose}); err != nil {
+	if _, err := Generate(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", Local: true}, Request{Pose: pose}); err != nil {
 		t.Fatal(err)
 	}
 	if got := api.last().Auth; got != "" {
@@ -125,12 +125,13 @@ func TestGenerateLocalWithoutKey(t *testing.T) {
 func TestGenerateReadsUploadedClothes(t *testing.T) {
 	api := &fakeAPI{}
 	srv, _ := newServer(t, api)
-	up, err := saveUpload(filePictures{}, t.TempDir(), tinyPNG(t), time.Unix(0, 42))
+	pics, dir := testFiles(t)
+	up, err := saveUpload(pics, dir, tinyPNG(t), time.Unix(0, 42))
 	if err != nil {
 		t.Fatal(err)
 	}
 	pose := &Item{Full: srv.URL + "/pose/img/a.png"}
-	if _, err := Generate(context.Background(), http.DefaultClient, Config{BaseURL: srv.URL + "/v1", APIKey: "k"},
+	if _, err := Generate(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", APIKey: "k", ReadLocal: pics.Read},
 		Request{Pose: pose, Costume: &Item{Kind: KindCostume, ID: "MY-01", Group: uploadGroup, Full: up}}); err != nil {
 		t.Fatal(err)
 	}
@@ -141,14 +142,14 @@ func TestGenerateReadsUploadedClothes(t *testing.T) {
 
 func TestCheckConnection(t *testing.T) {
 	srv, _ := newServer(t, &fakeAPI{})
-	if err := CheckConnection(context.Background(), http.DefaultClient, Config{BaseURL: srv.URL + "/v1/", APIKey: "k"}); err != nil {
+	if err := CheckConnection(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1/", APIKey: "k"}); err != nil {
 		t.Errorf("a good key: %v", err)
 	}
-	err := CheckConnection(context.Background(), http.DefaultClient, Config{BaseURL: srv.URL + "/v1", APIKey: "bad"})
+	err := CheckConnection(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/v1", APIKey: "bad"})
 	if err == nil || !strings.Contains(err.Error(), "Incorrect API key") {
 		t.Errorf("a bad key: %v", err)
 	}
-	if err := CheckConnection(context.Background(), http.DefaultClient, Config{BaseURL: srv.URL + "/nowhere"}); err == nil {
+	if err := CheckConnection(context.Background(), srv.Client(), Config{BaseURL: srv.URL + "/nowhere"}); err == nil {
 		t.Error("a wrong address passed")
 	}
 }
@@ -157,11 +158,11 @@ func TestSheetSendsTheAnglesAsOneImage(t *testing.T) {
 	api := &fakeAPI{}
 	srv, sites := newServer(t, api)
 	ctx := context.Background()
-	poses, _ := FetchCatalog(ctx, http.DefaultClient, sites, KindPose)
-	faces, _ := FetchCatalog(ctx, http.DefaultClient, sites, KindFace)
+	poses, _ := FetchCatalog(ctx, srv.Client(), sites, KindPose)
+	faces, _ := FetchCatalog(ctx, srv.Client(), sites, KindFace)
 	views := poses.Angles(poses.Items[0])
 	r := Request{Pose: &views[0], Views: []*Item{&views[0], &views[1]}, Face: &faces.Items[1]}
-	if _, err := Generate(ctx, http.DefaultClient, Config{BaseURL: srv.URL + "/v1", APIKey: "k", Size: "1024x1536"}, r); err != nil {
+	if _, err := Generate(ctx, srv.Client(), Config{BaseURL: srv.URL + "/v1", APIKey: "k", Size: "1024x1536"}, r); err != nil {
 		t.Fatal(err)
 	}
 	req := api.last()
@@ -274,11 +275,11 @@ func TestBackgroundIsSentLast(t *testing.T) {
 	api := &fakeAPI{}
 	srv, sites := newServer(t, api)
 	ctx := context.Background()
-	poses, _ := FetchCatalog(ctx, http.DefaultClient, sites, KindPose)
-	faces, _ := FetchCatalog(ctx, http.DefaultClient, sites, KindFace)
+	poses, _ := FetchCatalog(ctx, srv.Client(), sites, KindPose)
+	faces, _ := FetchCatalog(ctx, srv.Client(), sites, KindFace)
 	bg := backgroundCatalog().Items[0]
 	r := Request{Pose: &poses.Items[0], Face: &faces.Items[1], Background: &bg, Style: StyleStreet}
-	if _, err := Generate(ctx, http.DefaultClient, Config{BaseURL: srv.URL + "/v1", APIKey: "k"}, r); err != nil {
+	if _, err := Generate(ctx, srv.Client(), Config{BaseURL: srv.URL + "/v1", APIKey: "k"}, r); err != nil {
 		t.Fatal(err)
 	}
 	req := api.last()

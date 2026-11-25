@@ -3,12 +3,15 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -78,8 +81,80 @@ func (f *fakeAPI) last() editRequest {
 	return f.requests[len(f.requests)-1]
 }
 
+// fakeServer is what a test's HTTP answers: the shape of httptest.Server — URL, Client, Close — but the handler serves the client's requests in the process rather than over a listener, which a web (js/wasm) test cannot open.
+type fakeServer struct {
+	URL    string
+	client *http.Client
+}
+
+// Client is the client that reaches the handler.
+func (f *fakeServer) Client() *http.Client { return f.client }
+
+// Close does nothing; there is no listener to stop.
+func (f *fakeServer) Close() {}
+
+// serve is httptest.NewServer without a network: the handler answers client.Do in the process, so a test works on a target with no sockets, the web among them.
+func serve(h http.Handler) *fakeServer {
+	return &fakeServer{URL: "https://fake.test", client: &http.Client{Transport: handlerTransport{h}}}
+}
+
+// handlerTransport serves h for the client's requests, running the handler concurrently so it hears a request's context end while it is still open.
+type handlerTransport struct{ h http.Handler }
+
+func (t handlerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	w := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		t.h.ServeHTTP(w, req)
+	}()
+	select {
+	case <-done:
+		// A response the request's context outlasted never reaches the client, even one that finished at the same moment.
+		if err := req.Context().Err(); err != nil {
+			return nil, err
+		}
+		return w.Result(), nil
+	case <-req.Context().Done():
+		return nil, req.Context().Err()
+	}
+}
+
+// failTransport answers every request with a network error, as a server that is not there does; explain reads it as a network failure on any target.
+type failTransport struct{}
+
+func (failTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return nil, &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")}
+}
+
+// testDir is the directory a test keeps the app's files in: a real temporary one on a platform with a file system, a made-up one on the web, where the store is memory and the path only names its entries.
+func testDir(t testing.TB) string {
+	t.Helper()
+	if runtime.GOOS == "js" {
+		return "/data/" + strings.ReplaceAll(t.Name(), "/", "-")
+	}
+	return t.TempDir()
+}
+
+// testFiles is the pictures store the platform keeps: files where it has a file system, memory on the web, matching defaultPictures.
+func testFiles(t testing.TB) (pictures, string) {
+	t.Helper()
+	if runtime.GOOS == "js" {
+		return newMemPictures(), testDir(t)
+	}
+	return filePictures{}, testDir(t)
+}
+
+// noFiles skips a subtest that needs the file system's store on a target that has none.
+func noFiles(t testing.TB) {
+	t.Helper()
+	if runtime.GOOS == "js" {
+		t.Skip("the browser's store is memory, which the other subtest runs")
+	}
+}
+
 // newServer serves the three galleries under /pose, /costume and /face, and the image API under /v1.
-func newServer(t testing.TB, api *fakeAPI) (*httptest.Server, Sites) {
+func newServer(t testing.TB, api *fakeAPI) (*fakeServer, Sites) {
 	t.Helper()
 	pic := tinyPNG(t)
 	var mu sync.Mutex
@@ -156,8 +231,7 @@ func newServer(t testing.TB, api *fakeAPI) (*httptest.Server, Sites) {
 		}
 		io.WriteString(w, `{"data":[`+strings.Join(data, ",")+`]}`)
 	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
+	srv := serve(mux)
 	return srv, Sites{Pose: srv.URL + "/pose", Costume: srv.URL + "/costume", Face: srv.URL + "/face"}
 }
 

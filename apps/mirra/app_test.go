@@ -17,11 +17,18 @@ func TestMain(m *testing.M) { nsgotest.Main(m) }
 
 const wait = 5 * time.Second
 
-// start runs the app against local galleries and a local image API, set up as OpenAI's at the test's address, keeping its data in a temporary directory; key "" leaves OpenAI without one.
-func start(t *testing.T, api *fakeAPI, key string, opts ...nsgotest.Option) (*nsgotest.App, string) {
+// testEnv is an app's run and where it kept its pictures: the app's store and its directory's name, which a test reads back to check what was saved.
+type testEnv struct {
+	app *nsgotest.App
+	st  pictures
+	dir string
+}
+
+// start runs the app against local galleries and a local image API, set up as OpenAI's at the test's address, keeping its pictures in the platform's store; key "" leaves OpenAI without one.
+func start(t *testing.T, api *fakeAPI, key string, opts ...nsgotest.Option) testEnv {
 	t.Helper()
 	srv, sites := newServer(t, api)
-	dir := t.TempDir()
+	st, dir := testFiles(t)
 	secrets := map[string]string{}
 	if key != "" {
 		secrets[providerByID(providerOpenAI).keyAccount()] = key
@@ -32,8 +39,8 @@ func start(t *testing.T, api *fakeAPI, key string, opts ...nsgotest.Option) (*ns
 		nsgotest.Storage(testStorage(srv.URL)),
 		nsgotest.Secrets(secrets),
 	}, opts...)
-	app := nsgotest.Start(t, App{Client: srv.Client(), Sites: sites, DataDir: dir}.Root, opts...)
-	return app, dir
+	app := nsgotest.Start(t, App{Client: srv.Client(), Sites: sites, DataDir: dir, Pictures: st}.Root, opts...)
+	return testEnv{app, st, dir}
 }
 
 // testStorage points OpenAI and the OpenAI-compatible server at the test's image API.
@@ -42,9 +49,10 @@ func testStorage(url string) map[string]string {
 	return map[string]string{keyProvider: openai.ID, openai.storageKey("url"): url + "/v1", openai.storageKey("model"): "test-model", custom.storageKey("url"): url + "/v1"}
 }
 
-func works(t *testing.T, dir string) []work {
+// worksOf lists the works the run kept, in its own store: files on the platforms with a file system, memory on the web.
+func worksOf(t *testing.T, env testEnv) []work {
 	t.Helper()
-	ws, err := listWorks(filePictures{}, filepath.Join(dir, "works"))
+	ws, err := listWorks(env.st, filepath.Join(env.dir, "works"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +99,8 @@ func makeLook(t *testing.T, app *nsgotest.App) {
 
 func TestPhoneLookIsKeptOnlyWhenSaved(t *testing.T) {
 	api := &fakeAPI{}
-	app, dir := start(t, api, "sk-test")
+	env := start(t, api, "sk-test")
+	app := env.app
 	if app.Enabled("id:generate") {
 		t.Error("Generate is enabled with nothing chosen")
 	}
@@ -104,12 +113,12 @@ func TestPhoneLookIsKeptOnlyWhenSaved(t *testing.T) {
 	if want := []string{"full_std_P001_front.png", "WIN-0001.png", "f001.png"}; !slices.Equal(req.Images, want) {
 		t.Errorf("images = %v, want %v", req.Images, want)
 	}
-	if n := len(works(t, dir)); n != 0 {
+	if n := len(worksOf(t, env)); n != 0 {
 		t.Fatalf("a picture not saved is in Works: %d", n)
 	}
 	app.Press("id:save-to-works")
 	app.WaitFor("id:saved", wait)
-	ws := works(t, dir)
+	ws := worksOf(t, env)
 	if len(ws) != 1 || ws[0].No != 1 || ws[0].Costume == nil || ws[0].Costume.ID != "WIN-0001" || ws[0].Pose == nil || ws[0].Face == nil {
 		t.Fatalf("works = %+v", ws)
 	}
@@ -117,7 +126,7 @@ func TestPhoneLookIsKeptOnlyWhenSaved(t *testing.T) {
 
 func TestRegenerateAndSwapOutfit(t *testing.T) {
 	api := &fakeAPI{}
-	app, _ := start(t, api, "k")
+	app := start(t, api, "k").app
 	makeLook(t, app)
 	app.Press("id:regenerate")
 	app.WaitUntil(wait, func() bool { return len(api.requests) == 2 })
@@ -132,11 +141,12 @@ func TestRegenerateAndSwapOutfit(t *testing.T) {
 }
 
 func TestFavoriteSavesAndFilters(t *testing.T) {
-	app, dir := start(t, &fakeAPI{}, "k")
+	env := start(t, &fakeAPI{}, "k")
+	app := env.app
 	makeLook(t, app)
 	app.Press("id:favorite")
 	app.WaitFor("id:saved", wait)
-	if ws := works(t, dir); len(ws) != 1 || !ws[0].Favorite {
+	if ws := worksOf(t, env); len(ws) != 1 || !ws[0].Favorite {
 		t.Fatalf("works = %+v, want one favorite", ws)
 	}
 	app.Press("id:close-shot")
@@ -146,21 +156,25 @@ func TestFavoriteSavesAndFilters(t *testing.T) {
 }
 
 func TestDeleteAShot(t *testing.T) {
-	app, dir := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts())
+	env := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts())
+	app := env.app
 	makeLook(t, app)
 	app.Press("id:save-to-works")
 	app.WaitFor("id:saved", wait)
+	// The saved toast's zone covers the top buttons for its five seconds; the test clock runs it out.
+	app.Advance(6 * time.Second)
+	app.WaitForGone("id:toast-1", wait)
 	app.Press("id:delete")
 	app.Answer(1)
 	app.WaitForGone("id:shot-image", wait)
-	if ws := works(t, dir); len(ws) != 0 {
+	if ws := worksOf(t, env); len(ws) != 0 {
 		t.Errorf("works after deleting = %+v", ws)
 	}
 }
 
 func TestCancelGenerating(t *testing.T) {
 	api := &fakeAPI{hang: true}
-	app, _ := start(t, api, "k")
+	app := start(t, api, "k").app
 	app.Press("id:row-pose")
 	choose(t, app, poseStand)
 	app.Press("id:generate")
@@ -177,7 +191,7 @@ func TestCancelGenerating(t *testing.T) {
 
 func TestNoServiceOpensSettings(t *testing.T) {
 	api := &fakeAPI{}
-	app, _ := start(t, api, "")
+	app := start(t, api, "").app
 	if got := app.Find("id:generate").Props.Label; !strings.Contains(got, "AI service") {
 		t.Errorf("Generate says %q without a service", got)
 	}
@@ -190,7 +204,7 @@ func TestNoServiceOpensSettings(t *testing.T) {
 
 func TestLocalServiceNeedsNoKey(t *testing.T) {
 	api := &fakeAPI{}
-	app, _ := start(t, api, "")
+	app := start(t, api, "").app
 	app.Press("text:Me")
 	app.Press("id:provider")
 	app.Press("role:option Custom (OpenAI-compatible)")
@@ -208,7 +222,7 @@ func TestLocalServiceNeedsNoKey(t *testing.T) {
 
 // TestProvidersKeepTheirSettings switches to another provider, which starts on its own preset, and back to OpenAI, whose key and address are still there.
 func TestProvidersKeepTheirSettings(t *testing.T) {
-	app, _ := start(t, &fakeAPI{}, "k")
+	app := start(t, &fakeAPI{}, "k").app
 	app.Press("text:Me")
 	app.Find("id:get-key")
 	app.Press("id:provider")
@@ -235,7 +249,7 @@ func TestProvidersKeepTheirSettings(t *testing.T) {
 func TestOldSettingsCarryOver(t *testing.T) {
 	api := &fakeAPI{}
 	srv, sites := newServer(t, api)
-	app := nsgotest.Start(t, App{Client: srv.Client(), Sites: sites, DataDir: t.TempDir()}.Root,
+	app := nsgotest.Start(t, App{Client: srv.Client(), Sites: sites, DataDir: testDir(t)}.Root,
 		nsgotest.Environment(core.Environment{Locale: "en"}),
 		nsgotest.Storage(map[string]string{legacyService: "local", legacyLocalURL: srv.URL + "/v1", legacyModel: "old-model"}),
 		nsgotest.Secrets(map[string]string{legacyLocalKey: "local-key"}))
@@ -251,7 +265,7 @@ func TestOldSettingsCarryOver(t *testing.T) {
 
 // TestAdvancedSettings opens on the provider and key alone, keeps the address, model and size under Advanced, sends the size chosen there, and resets them to the preset's.
 func TestAdvancedSettings(t *testing.T) {
-	fresh := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en"}))
+	fresh := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en"}))
 	fresh.Press("text:Me")
 	fresh.Find("id:api-key")
 	fresh.Find("id:model")
@@ -270,7 +284,7 @@ func TestAdvancedSettings(t *testing.T) {
 	fresh.Find("id:base-url")
 
 	api := &fakeAPI{}
-	app, _ := start(t, api, "k")
+	app := start(t, api, "k").app
 	app.Press("text:Me")
 	// The test's address and model differ from OpenAI's, so Advanced opens on its own.
 	app.Find("id:base-url")
@@ -294,7 +308,7 @@ func TestAdvancedSettings(t *testing.T) {
 
 // TestDesktopSettingsTabs puts the desktop settings on tabs down the side: the service first, the address, model and size on their own tab, and Generate without a service back on the service's.
 func TestDesktopSettingsTabs(t *testing.T) {
-	app := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(1440, 1000))
+	app := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(1440, 1000))
 	app.Press("id:open-settings")
 	app.WaitFor("id:api-key", wait)
 	app.Find("id:test-connection")
@@ -325,11 +339,11 @@ func TestCheckForUpdatesWhereTheAppUpdates(t *testing.T) {
 		os   core.OS
 		want bool
 	}{{core.OSMacOS, true}, {core.OSWindows, true}, {core.OSAndroid, true}, {core.OSWeb, false}, {core.OSIOS, false}} {
-		// A target runs on its own OS, which an Environment does not change.
-		if nsgotest.Target() != "" && c.os != core.OSMacOS {
+		// A target runs on its own OS, which an Environment does not change: only its case can be checked there.
+		if target := nsgotest.Target(); target != "" && !strings.HasPrefix(target, string(c.os)) {
 			continue
 		}
-		app := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en", OS: c.os}), nsgotest.Size(1440, 1000))
+		app := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en", OS: c.os}), nsgotest.Size(1440, 1000))
 		app.Press("id:open-settings")
 		app.Press("id:settings-nav-about")
 		app.WaitFor("id:version", wait)
@@ -340,7 +354,7 @@ func TestCheckForUpdatesWhereTheAppUpdates(t *testing.T) {
 }
 
 func TestConnectionTestReportsFailure(t *testing.T) {
-	app, _ := start(t, &fakeAPI{}, "bad")
+	app := start(t, &fakeAPI{}, "bad").app
 	app.Press("text:Me")
 	app.Press("id:test-connection")
 	app.WaitFor("id:conn-failed", wait)
@@ -352,7 +366,7 @@ func TestConnectionTestReportsFailure(t *testing.T) {
 
 // TestAdultChipAsksAge keeps the adults-only outfits out of sight until the user says they are 18 or older.
 func TestAdultChipAsksAge(t *testing.T) {
-	app, _ := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts())
+	app := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts()).app
 	app.Press("text:Wardrobe")
 	app.Press("id:closet-gallery")
 	app.WaitFor(outfitKnit, wait)
@@ -379,7 +393,7 @@ func TestAdultChipAsksAge(t *testing.T) {
 
 // TestAgeAnswerIsKept remembers that the user is 18 or older, since works and favorites from the adults-only categories show again on the next launch.
 func TestAgeAnswerIsKept(t *testing.T) {
-	app, _ := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts())
+	app := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts()).app
 	app.Press("text:Wardrobe")
 	app.Press("id:closet-gallery")
 	app.WaitFor(outfitKnit, wait)
@@ -394,7 +408,7 @@ func TestAgeAnswerIsKept(t *testing.T) {
 	srv, _ := newServer(t, api)
 	stored := testStorage(srv.URL)
 	stored[keyAdult] = "1"
-	again, _ := start(t, api, "k", nsgotest.PendingAlerts(), nsgotest.Storage(stored))
+	again := start(t, api, "k", nsgotest.PendingAlerts(), nsgotest.Storage(stored)).app
 	again.Press("text:Wardrobe")
 	again.Press("id:closet-gallery")
 	again.WaitFor(outfitKnit, wait)
@@ -406,7 +420,7 @@ func TestAgeAnswerIsKept(t *testing.T) {
 }
 
 func TestWardrobeFavorites(t *testing.T) {
-	app, _ := start(t, &fakeAPI{}, "k")
+	app := start(t, &fakeAPI{}, "k").app
 	app.Press("text:Wardrobe")
 	app.Press("id:closet-favorites")
 	app.Find("text:No favorites yet")
@@ -422,7 +436,7 @@ func TestUploadedClothesAreWorn(t *testing.T) {
 		t.Skip("a target never hands the test's PickImages answer to the app: https://github.com/nsgo-dev/nsgo/issues/866")
 	}
 	api := &fakeAPI{}
-	app, _ := start(t, api, "k")
+	app := start(t, api, "k").app
 	app.Press("text:Wardrobe")
 	app.PickImages = func(core.PickRequest) []core.PickedFile {
 		return []core.PickedFile{{Name: "shirt.png", MIME: "image/png", Data: tinyPNG(t)}}
@@ -442,14 +456,15 @@ func TestUploadedClothesAreWorn(t *testing.T) {
 }
 
 func TestGalleryErrorOffersRetry(t *testing.T) {
-	app := nsgotest.Start(t, App{Sites: Sites{Pose: "http://127.0.0.1:1", Costume: "http://127.0.0.1:1", Face: "http://127.0.0.1:1"}, DataDir: t.TempDir()}.Root)
+	app := nsgotest.Start(t, App{Sites: Sites{Pose: "http://127.0.0.1:1", Costume: "http://127.0.0.1:1", Face: "http://127.0.0.1:1"}, DataDir: testDir(t)}.Root)
 	app.Press("id:row-costume")
 	app.WaitFor("id:retry", wait)
 }
 
 func TestDesktopStudio(t *testing.T) {
 	api := &fakeAPI{}
-	app, dir := start(t, api, "k", nsgotest.Size(1440, 1000))
+	env := start(t, api, "k", nsgotest.Size(1440, 1000))
+	app := env.app
 	app.Find("id:desktop")
 	choose(t, app, faceShort)
 	app.Press("id:library-costume")
@@ -465,7 +480,7 @@ func TestDesktopStudio(t *testing.T) {
 	}
 	app.Press("id:save-to-works")
 	app.WaitFor("id:saved", wait)
-	if ws := works(t, dir); len(ws) != 1 {
+	if ws := worksOf(t, env); len(ws) != 1 {
 		t.Errorf("works = %d, want 1", len(ws))
 	}
 	app.Press("id:close-shot")
@@ -506,7 +521,7 @@ func TestMacMenuOpensSettingsAndChecksForUpdates(t *testing.T) {
 	if nsgotest.Target() != "" && nsgotest.Target() != "macos" {
 		t.Skip("the menu is macOS's")
 	}
-	app := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en", OS: core.OSMacOS}), nsgotest.Size(1440, 1000))
+	app := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en", OS: core.OSMacOS}), nsgotest.Size(1440, 1000))
 	app.ChooseMenu("Mirra", "Settings…")
 	app.WaitFor("id:settings", wait)
 	if nsgotest.Target() == "" {
@@ -515,7 +530,7 @@ func TestMacMenuOpensSettingsAndChecksForUpdates(t *testing.T) {
 			t.Errorf("update checks %v, want one asked for", checks)
 		}
 	}
-	other := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en", OS: core.OSWindows}), nsgotest.Size(1440, 1000))
+	other := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en", OS: core.OSWindows}), nsgotest.Size(1440, 1000))
 	if nsgotest.Target() == "" && len(other.Menu) != 0 {
 		t.Errorf("Windows got a menu bar: %v", other.Menu)
 	}
@@ -523,7 +538,8 @@ func TestMacMenuOpensSettingsAndChecksForUpdates(t *testing.T) {
 
 func TestSheetOfAllAngles(t *testing.T) {
 	api := &fakeAPI{}
-	app, dir := start(t, api, "k")
+	env := start(t, api, "k")
+	app := env.app
 	app.Press("id:row-face")
 	choose(t, app, faceShort)
 	app.Press("id:next")
@@ -543,7 +559,7 @@ func TestSheetOfAllAngles(t *testing.T) {
 	}
 	app.Press("id:save-to-works")
 	app.WaitFor("id:saved", wait)
-	ws := works(t, dir)
+	ws := worksOf(t, env)
 	if len(ws) != 1 || len(ws[0].Views) != 2 || ws[0].Views[1].ID != "full_std_P001_side" {
 		t.Fatalf("works = %+v", ws)
 	}
@@ -556,7 +572,7 @@ func TestSheetOfAllAngles(t *testing.T) {
 
 func TestSurpriseChoosesAShownLook(t *testing.T) {
 	api := &fakeAPI{}
-	app, _ := start(t, api, "k")
+	app := start(t, api, "k").app
 	app.WaitFor("id:surprise", wait)
 	// The galleries load after the first frame; a press before they have is a no-op.
 	app.WaitUntil(wait, func() bool {
@@ -574,8 +590,8 @@ func TestSurpriseChoosesAShownLook(t *testing.T) {
 // TestDesktopColumnsResize opens the side columns at a share of the window, wider in a wider one, lets the user drag the gutter between them, and keeps what they dragged to for the next launch.
 func TestDesktopColumnsResize(t *testing.T) {
 	width := func(app *nsgotest.App, id string) core.Points { return app.Find("id:" + id).Frame.Size.Width }
-	small := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(1280, 900))
-	large := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(2400, 1300))
+	small := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(1280, 900))
+	large := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(2400, 1300))
 	if s, l := width(small, "column-library"), width(large, "column-library"); l <= s {
 		t.Errorf("the library is %v wide in the large window and %v in the small one, want it wider in the large", l, s)
 	}
@@ -583,7 +599,7 @@ func TestDesktopColumnsResize(t *testing.T) {
 		t.Errorf("the look is %v wide in the large window and %v in the small one, want it wider in the large", l, s)
 	}
 
-	dir := t.TempDir()
+	dir := testDir(t)
 	app := nsgotest.Start(t, App{DataDir: dir}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(1440, 1000))
 	before := width(app, "column-library")
 	app.Drag("id:columns-handle-0", core.Point{X: 20}, core.Point{X: 40}, core.Point{X: 60})
@@ -604,7 +620,7 @@ func TestDesktopColumnsResize(t *testing.T) {
 
 // TestLanguageSetting switches the app's language in the settings, on the phone and on the desktop, at once and for the next launch, and follows the system's again.
 func TestLanguageSetting(t *testing.T) {
-	dir := t.TempDir()
+	dir := testDir(t)
 	app := nsgotest.Start(t, App{DataDir: dir}.Root, nsgotest.Environment(core.Environment{Locale: "en"}))
 	app.Press("text:Me")
 	app.Press("id:language")
@@ -624,7 +640,7 @@ func TestLanguageSetting(t *testing.T) {
 		t.Error("following the system keeps a language")
 	}
 
-	desk := nsgotest.Start(t, App{DataDir: t.TempDir()}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(1440, 1000))
+	desk := nsgotest.Start(t, App{DataDir: testDir(t)}.Root, nsgotest.Environment(core.Environment{Locale: "en"}), nsgotest.Size(1440, 1000))
 	desk.Press("id:open-settings")
 	desk.Press("id:settings-nav-general")
 	desk.Press("id:language")
@@ -637,7 +653,8 @@ func TestLanguageSetting(t *testing.T) {
 
 func TestStyleIsSentKeptAndRestored(t *testing.T) {
 	api := &fakeAPI{}
-	app, dir := start(t, api, "k")
+	env := start(t, api, "k")
+	app := env.app
 	app.Press("id:style-Street")
 	makeLook(t, app)
 	if p := api.last().Prompt; !strings.Contains(p, "on a city street") {
@@ -648,14 +665,14 @@ func TestStyleIsSentKeptAndRestored(t *testing.T) {
 	}
 	app.Press("id:save-to-works")
 	app.WaitFor("id:saved", wait)
-	if ws := works(t, dir); len(ws) != 1 || ws[0].Style != StyleStreet {
+	if ws := worksOf(t, env); len(ws) != 1 || ws[0].Style != StyleStreet {
 		t.Fatalf("works = %+v", ws)
 	}
 
 	srv, _ := newServer(t, api)
 	stored := testStorage(srv.URL)
 	stored[keyStyle] = string(StyleFilm)
-	again, _ := start(t, api, "k", nsgotest.Storage(stored))
+	again := start(t, api, "k", nsgotest.Storage(stored)).app
 	again.WaitFor("id:style-Film", wait)
 	if !again.Find("id:style-Film").Props.Selected || again.Find("id:style-Studio").Props.Selected {
 		t.Error("the stored style is not the one chosen")
@@ -664,7 +681,7 @@ func TestStyleIsSentKeptAndRestored(t *testing.T) {
 
 func TestModelIsChosenFromTheListedOnes(t *testing.T) {
 	api := &fakeAPI{}
-	app, _ := start(t, api, "k")
+	app := start(t, api, "k").app
 	app.Press("text:Me")
 	app.WaitFor("id:model", wait)
 	app.Press("id:model")
@@ -705,7 +722,8 @@ func TestEveryLanguageNamesItself(t *testing.T) {
 // TestBackgroundTab starts without a background, sends the one chosen on the background tab with the look, keeps it with the work, and goes back to none.
 func TestBackgroundTab(t *testing.T) {
 	api := &fakeAPI{}
-	app, dir := start(t, api, "k", nsgotest.Size(1440, 1000))
+	env := start(t, api, "k", nsgotest.Size(1440, 1000))
+	app := env.app
 	app.Find("text:No background")
 	app.Press("id:library-pose")
 	choose(t, app, poseStand)
@@ -720,7 +738,7 @@ func TestBackgroundTab(t *testing.T) {
 	}
 	app.Press("id:save-to-works")
 	app.WaitFor("id:saved", wait)
-	if ws := works(t, dir); len(ws) != 1 || ws[0].Background == nil || ws[0].Background.ID != bg.ID {
+	if ws := worksOf(t, env); len(ws) != 1 || ws[0].Background == nil || ws[0].Background.ID != bg.ID {
 		t.Errorf("works = %+v, want one keeping the background", ws)
 	}
 	app.Press("id:close-shot")
@@ -742,7 +760,7 @@ func TestBackgroundTab(t *testing.T) {
 
 // TestAdultSetting turns the galleries' 18+ categories on in the settings, which asks the age once, and off again, which forgets the answer and leaves an 18+ category on show.
 func TestAdultSetting(t *testing.T) {
-	app, _ := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts())
+	app := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts()).app
 	app.Press("text:Me")
 	if app.Find("id:adult-switch").Props.Checked {
 		t.Fatal("the 18+ switch is on before the user was asked")
@@ -779,7 +797,7 @@ func TestAdultSetting(t *testing.T) {
 
 // TestServiceHeader shows the chosen provider with the connection's state, untested until the test passes.
 func TestServiceHeader(t *testing.T) {
-	app, _ := start(t, &fakeAPI{}, "k", nsgotest.Size(1440, 1000))
+	app := start(t, &fakeAPI{}, "k", nsgotest.Size(1440, 1000)).app
 	app.Press("id:open-settings")
 	app.Press("id:settings-nav-service")
 	app.WaitFor("id:service-header", wait)

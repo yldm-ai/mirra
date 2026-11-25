@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -44,21 +43,18 @@ func TestExplain(t *testing.T) {
 // TestExplainNetworkErrors reads what the HTTP client returns for a server that is not there and for one that answers too late.
 func TestExplainNetworkErrors(t *testing.T) {
 	en := locales.In("en")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	addr := srv.URL
-	srv.Close()
-	err := CheckConnection(context.Background(), http.DefaultClient, Config{BaseURL: addr, APIKey: "k"})
+	missing := &http.Client{Transport: failTransport{}}
+	err := CheckConnection(context.Background(), missing, Config{BaseURL: "https://gone.test", APIKey: "k"})
 	if got := explain(en, err); len(got) <= len(en.ErrNetwork()) || got[:len(en.ErrNetwork())] != en.ErrNetwork() {
 		t.Errorf("a closed server: %q", got)
 	}
-	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	slow := serve(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
 		io.WriteString(w, "late")
 	}))
-	defer slow.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	err = CheckConnection(ctx, http.DefaultClient, Config{BaseURL: slow.URL, APIKey: "k"})
+	err = CheckConnection(ctx, slow.Client(), Config{BaseURL: slow.URL, APIKey: "k"})
 	if got := explain(en, err); got != en.ErrTimeout() {
 		t.Errorf("a slow server: %q (%v)", got, err)
 	}
