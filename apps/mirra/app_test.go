@@ -158,6 +158,40 @@ func TestDeleteAShot(t *testing.T) {
 	}
 }
 
+// TestTheHeroOpensTheFirstMissingStep presses the home page's picture, which opens the editor on the first element still empty, and on the pose when every one is chosen.
+func TestTheHeroOpensTheFirstMissingStep(t *testing.T) {
+	app, _ := start(t, &fakeAPI{}, "k")
+	// Nothing chosen yet: the editor opens on the face.
+	app.Press("label:Choose a face")
+	app.WaitFor("id:step-face", wait)
+	if !app.Find("id:step-face").Props.Selected {
+		t.Fatal("the editor opened on another step than the face")
+	}
+	choose(t, app, faceShort)
+	app.Press("id:done")
+	// With the face chosen, the editor opens on the outfit.
+	app.Press("label:Choose a face")
+	app.WaitFor("id:step-costume", wait)
+	if !app.Find("id:step-costume").Props.Selected {
+		t.Fatal("the editor opened on another step than the outfit")
+	}
+	choose(t, app, outfitCoat)
+	app.Press("id:done")
+	// With the outfit chosen too, the editor opens on the pose.
+	app.Press("label:Choose a face")
+	app.WaitFor("id:step-pose", wait)
+	if !app.Find("id:step-pose").Props.Selected {
+		t.Fatal("the editor opened on another step than the pose")
+	}
+	choose(t, app, poseStand)
+	app.Press("id:done")
+	// With every element chosen, the editor opens on the pose, the one a look cannot go without.
+	app.Press("label:Choose a face")
+	if !app.Find("id:step-pose").Props.Selected {
+		t.Fatal("the editor opened on another step than the pose")
+	}
+}
+
 func TestCancelGenerating(t *testing.T) {
 	api := &fakeAPI{hang: true}
 	app, _ := start(t, api, "k")
