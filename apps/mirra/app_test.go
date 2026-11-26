@@ -158,6 +158,48 @@ func TestDeleteAShot(t *testing.T) {
 	}
 }
 
+// TestEveryButtonHasAName walks the app's screens and checks every pressable view has a name for assistive technology, which reads a nameless button as just "button".
+func TestEveryButtonHasAName(t *testing.T) {
+	unnamed := func(app *nsgotest.App, where string) {
+		for _, v := range app.Query("role:button") {
+			if v.Props.Label == "" {
+				t.Errorf("on %s, the %q button has no name for assistive technology", where, v.Props.TestID)
+			}
+		}
+	}
+	app, _ := start(t, &fakeAPI{}, "k")
+	unnamed(app, "the phone's home")
+	app.Press("id:row-face")
+	unnamed(app, "the face step")
+	app.Press("id:done")
+	app.Press("text:Wardrobe")
+	unnamed(app, "the wardrobe")
+	app.Press("text:Me")
+	unnamed(app, "the settings")
+
+	// A toast is on show while the shot's screens are scanned: its close button was the one nameless button.
+	app.Press("text:Studio")
+	makeLook(t, app)
+	app.Press("id:save-to-works")
+	app.WaitFor("id:saved", wait)
+	unnamed(app, "the shot with its toast")
+	app.Press("id:close-shot")
+	app.Press("text:Works")
+	unnamed(app, "the works")
+
+	desktop, _ := start(t, &fakeAPI{}, "k", nsgotest.Size(1440, 1000))
+	unnamed(desktop, "the desktop's studio")
+	desktop.Press("id:open-settings")
+	desktop.WaitFor("id:api-key", wait)
+	unnamed(desktop, "the settings")
+	desktop.Press("id:settings-nav-advanced")
+	desktop.WaitFor("id:base-url", wait)
+	unnamed(desktop, "the advanced settings")
+	desktop.Press("id:settings-nav-sources")
+	desktop.WaitFor("text:Poses", wait)
+	unnamed(desktop, "the settings' sources")
+}
+
 func TestCancelGenerating(t *testing.T) {
 	api := &fakeAPI{hang: true}
 	app, _ := start(t, api, "k")

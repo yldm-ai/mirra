@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A toast's close button is named for assistive technology, which read it as an unnamed button.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.

@@ -189,7 +189,8 @@ func (a App) Root(cx *core.Scope) core.Node {
 					}}
 				})
 			}),
-			ui.Toasts{Toaster: s.toaster, Placement: ui.ToastTop},
+			// CloseLabel names each toast's close button, which assistive technology would otherwise read as an unnamed button.
+			ui.Toasts{Toaster: s.toaster, Placement: ui.ToastTop, CloseLabel: locales.For(cx).Close()},
 		},
 	}
 }
