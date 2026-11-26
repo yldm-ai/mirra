@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -155,6 +157,97 @@ func TestDeleteAShot(t *testing.T) {
 	app.WaitForGone("id:shot-image", wait)
 	if ws := works(t, dir); len(ws) != 0 {
 		t.Errorf("works after deleting = %+v", ws)
+	}
+}
+
+// The export answers the system's save dialog, which only the headless model fakes.
+func headlessOnly(t *testing.T) {
+	if target := nsgotest.Target(); target != "" {
+		t.Skipf("answers the save dialog, which the headless model fakes, not %s", target)
+	}
+}
+
+// TestExportSavesThePictureOnShow exports the picture on show through the system's save dialog, and owns up to one that cannot be written or is cancelled.
+func TestExportSavesThePictureOnShow(t *testing.T) {
+	headlessOnly(t)
+	app, dir := start(t, &fakeAPI{}, "k")
+	makeLook(t, app)
+	out := filepath.Join(dir, "mirra.png")
+	app.SaveFile = func(core.SaveRequest) string { return out }
+	app.Press("id:export")
+	app.WaitFor("text:/Exported/", wait)
+	if r := app.Saves[0]; r.Name != "mirra.png" || r.Path == "" || r.Data != nil {
+		t.Errorf("the dialog was asked to save %+v", r)
+	}
+	if data, err := os.ReadFile(out); err != nil || !bytes.Equal(data, tinyPNG(t)) {
+		t.Errorf("the exported file holds %v bytes (err %v), want the picture", len(data), err)
+	}
+
+	// A save that cannot be written says so.
+	app.SaveFile = func(core.SaveRequest) string { return filepath.Join(dir, "no", "such", "dir", "mirra.png") }
+	app.Press("id:export")
+	app.WaitFor("text:/Couldn't save/", wait)
+
+	// Cancelling keeps the picture where it is and says nothing.
+	app.Advance(6 * time.Second)
+	app.SaveFile = func(core.SaveRequest) string { return "" }
+	app.Press("id:export")
+	app.Settle()
+	if app.Exists("text:/Exported|Couldn't save/") {
+		t.Error("a cancelled save said something")
+	}
+}
+
+// TestExportInABrowserSendsThePicture exports a picture a browser keeps in memory: with no file to point at, the save carries the bytes.
+func TestExportInABrowserSendsThePicture(t *testing.T) {
+	headlessOnly(t)
+	api := &fakeAPI{}
+	srv, sites := newServer(t, api)
+	app := nsgotest.Start(t, App{Client: srv.Client(), Sites: sites, Pictures: newMemPictures(), DataDir: t.TempDir()}.Root,
+		nsgotest.Environment(core.Environment{Locale: "en"}),
+		nsgotest.Storage(testStorage(srv.URL)),
+		nsgotest.Secrets(map[string]string{providerByID(providerOpenAI).keyAccount(): "k"}))
+	makeLook(t, app)
+	out := filepath.Join(t.TempDir(), "mirra.png")
+	app.SaveFile = func(core.SaveRequest) string { return out }
+	app.Press("id:export")
+	app.WaitFor("text:/Exported/", wait)
+	if r := app.Saves[0]; r.Name != "mirra.png" || r.Path != "" || !bytes.Equal(r.Data, tinyPNG(t)) {
+		t.Errorf("the dialog was asked to save %+v", r)
+	}
+	if data, err := os.ReadFile(out); err != nil || !bytes.Equal(data, tinyPNG(t)) {
+		t.Errorf("the exported file holds %v bytes (err %v), want the picture", len(data), err)
+	}
+}
+
+// TestSavingTellsYouWhenItCannot makes the lookbook's folder read-only, so the picture cannot be saved: the app says so and the picture stays offered for saving, which then works.
+func TestSavingTellsYouWhenItCannot(t *testing.T) {
+	headlessOnly(t)
+	app, dir := start(t, &fakeAPI{}, "k")
+	makeLook(t, app)
+	folder := filepath.Join(dir, "works")
+	if err := os.Mkdir(folder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(folder, 0o700) })
+	if err := os.Chmod(folder, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	app.Press("id:save-to-works")
+	app.WaitFor("text:/Couldn't save/", wait)
+	if ws := works(t, dir); len(ws) != 0 {
+		t.Errorf("the lookbook took the picture anyway: %+v", ws)
+	}
+	app.Find("id:save-to-works")
+
+	// With the lookbook writable again, the same picture saves.
+	if err := os.Chmod(folder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	app.Press("id:save-to-works")
+	app.WaitFor("id:saved", wait)
+	if ws := works(t, dir); len(ws) != 1 {
+		t.Errorf("the lookbook holds %+v after a retry, want the picture", ws)
 	}
 }
 
