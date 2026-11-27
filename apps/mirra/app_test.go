@@ -145,6 +145,60 @@ func TestFavoriteSavesAndFilters(t *testing.T) {
 	app.WaitFor("label:Open No.01", wait)
 }
 
+// TestOpeningAWorkRestoresItsLook opens a saved work and puts the look it was made from back in the studio: a picture made without an outfit leaves none chosen, as a work without a background already does.
+func TestOpeningAWorkRestoresItsLook(t *testing.T) {
+	api := &fakeAPI{}
+	app, dir := start(t, api, "k")
+	// A picture made of a pose alone, with no face and no outfit.
+	app.Press("id:row-pose")
+	choose(t, app, poseStand)
+	app.Press("id:generate")
+	app.WaitFor("id:shot-image", wait)
+	app.Press("id:save-to-works")
+	app.WaitFor("id:saved", wait)
+	if ws := works(t, dir); len(ws) != 1 || ws[0].Face != nil || ws[0].Costume != nil {
+		t.Fatalf("works = %+v, want one made without a face or an outfit", ws)
+	}
+	// The saved toast's zone covers the top buttons for its five seconds; the test clock runs it out.
+	app.Advance(6 * time.Second)
+	app.WaitForGone("id:toast-1", wait)
+	// The user picks an outfit for the next picture.
+	app.Press("id:close-shot")
+	app.Press("id:row-costume")
+	choose(t, app, outfitCoat)
+	app.Press("id:done")
+	if got := app.Find("id:row-costume").Props.Label; !strings.Contains(got, "camel wool coat") {
+		t.Fatalf("the outfit row reads %q", got)
+	}
+	// Opening the work puts its own look back: it was made without an outfit, so none is chosen.
+	app.Press("text:Works")
+	app.Press("label:Open No.01")
+	app.WaitFor("id:shot-image", wait)
+	app.Press("id:close-shot")
+	if got := app.Find("id:row-costume").Props.Label; !strings.Contains(got, "Not chosen") {
+		t.Fatalf("the outfit row reads %q after opening the work", got)
+	}
+}
+
+// TestStarringASavedWorkRewritesItsSidecar stars a picture that is already in Works, which rewrites the sidecar the work is read from.
+func TestStarringASavedWorkRewritesItsSidecar(t *testing.T) {
+	app, dir := start(t, &fakeAPI{}, "k")
+	makeLook(t, app)
+	app.Press("id:save-to-works")
+	app.WaitFor("id:saved", wait)
+	// The saved toast's zone covers the top buttons for its five seconds; the test clock runs it out.
+	app.Advance(6 * time.Second)
+	app.WaitForGone("id:toast-1", wait)
+	app.Press("id:favorite")
+	app.WaitUntil(wait, func() bool {
+		ws, err := listWorks(filePictures{}, filepath.Join(dir, "works"))
+		return err == nil && len(ws) == 1 && ws[0].Favorite
+	})
+	if ws := works(t, dir); len(ws) != 1 || !ws[0].Favorite {
+		t.Fatalf("works = %+v, want the picture starred", ws)
+	}
+}
+
 func TestDeleteAShot(t *testing.T) {
 	app, dir := start(t, &fakeAPI{}, "k", nsgotest.PendingAlerts())
 	makeLook(t, app)

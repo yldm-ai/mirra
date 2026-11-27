@@ -473,12 +473,10 @@ func (s *studio) closeShot() {
 
 // openWork shows a saved work with the look it was made from, which Generate again starts from.
 func (s *studio) openWork(w work) {
-	for k, it := range map[Kind]*Item{KindFace: w.Face, KindCostume: w.Costume, KindPose: w.Pose} {
-		if it != nil {
-			s.chosen[k].Set(it)
-		}
-	}
-	// A work without a background was made without one, so none is chosen for Generate again.
+	// A work without a face, an outfit, a pose or a background was made without one, so none is chosen for Generate again.
+	s.chosen[KindFace].Set(w.Face)
+	s.chosen[KindCostume].Set(w.Costume)
+	s.chosen[KindPose].Set(w.Pose)
 	s.chosen[KindBackground].Set(w.Background)
 	s.sheet.Set(len(w.Views) > 1)
 	s.setStyle(w.Style)
