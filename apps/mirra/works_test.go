@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -12,6 +14,48 @@ import (
 func eachStore(t *testing.T, test func(t *testing.T, st pictures, root string)) {
 	t.Run("files", func(t *testing.T) { test(t, filePictures{}, t.TempDir()) })
 	t.Run("memory", func(t *testing.T) { test(t, newMemPictures(), "/data") })
+}
+
+// errFull is what a store says when it has no room for a sidecar.
+var errFull = errors.New("disk full")
+
+// fullDisk keeps the pictures writable but refuses every sidecar's write, as a full disk would.
+type fullDisk struct{ pictures }
+
+func (p fullDisk) Write(path string, data []byte) error {
+	if strings.HasSuffix(path, ".json") {
+		return errFull
+	}
+	return p.pictures.Write(path, data)
+}
+
+// TestASidecarThatCannotBeWrittenLeavesThePictureWhereItWas saves a picture whose sidecar cannot be written: the save fails and the picture goes back where it was, so a retry can move it once there is room again.
+func TestASidecarThatCannotBeWrittenLeavesThePictureWhereItWas(t *testing.T) {
+	eachStore(t, func(t *testing.T, st pictures, root string) {
+		full := fullDisk{st}
+		t0 := time.Date(2026, 11, 19, 10, 0, 0, 0, time.UTC)
+		pic, err := writePicture(full, filepath.Join(root, "results"), tinyPNG(t), t0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := saveWork(full, filepath.Join(root, "works"), pic, t0.Add(time.Minute), workMeta{}); err == nil {
+			t.Fatal("a save whose sidecar cannot be written succeeded")
+		}
+		if left, err := st.List(filepath.Join(root, "results")); err != nil || len(left) != 1 {
+			t.Errorf("the results hold %v (err %v), want the picture back", left, err)
+		}
+		if ws, err := listWorks(st, filepath.Join(root, "works")); err != nil || len(ws) != 0 {
+			t.Errorf("the lookbook holds %+v (err %v), want nothing", ws, err)
+		}
+
+		// With the sidecar writable again, the same picture saves.
+		if _, err := saveWork(st, filepath.Join(root, "works"), pic, t0.Add(2*time.Minute), workMeta{}); err != nil {
+			t.Fatal(err)
+		}
+		if ws, _ := listWorks(st, filepath.Join(root, "works")); len(ws) != 1 {
+			t.Errorf("the lookbook holds %+v, want the picture", ws)
+		}
+	})
 }
 
 func TestWorksAreNumberedAndKeepTheirLook(t *testing.T) {

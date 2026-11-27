@@ -64,6 +64,8 @@ func saveWork(st pictures, dir, picture string, at time.Time, meta workMeta) (wo
 	}
 	w := work{Path: path, Created: at, workMeta: meta}
 	if err := writeMeta(st, w); err != nil {
+		// The picture moved, but its sidecar could not be written — a full disk, say — so it goes back where it was: the save fails as one, and a retry can move the picture again.
+		_ = st.Rename(path, picture)
 		return work{}, err
 	}
 	return w, nil

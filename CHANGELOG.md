@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- When a saved picture's sidecar cannot be written — a full disk, say — the picture now goes back where it was, instead of staying stranded in the lookbook without its sidecar.
+
 ## 0.20.0 - 2026-11-20
 
 - 130 backgrounds instead of 14, most of them outdoors: beaches, lakes, mountains, forests, fields, deserts, streets, old towns and harbors, besides a few rooms.
